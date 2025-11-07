@@ -6,6 +6,13 @@ const WorkerDashboard = () => {
   const navigate = useNavigate()
   const [worker, setWorker] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [jobs, setJobs] = useState([])
+  const [filters, setFilters] = useState({
+    workType: [],
+    location: '',
+    salaryRange: '',
+    searchQuery: ''
+  })
 
   useEffect(() => {
     // Check authentication first
@@ -14,6 +21,7 @@ const WorkerDashboard = () => {
       return
     }
     fetchWorkerData()
+    fetchJobs()
   }, [navigate])
 
   const fetchWorkerData = async () => {
@@ -52,11 +60,77 @@ const WorkerDashboard = () => {
     }
   }
 
+  const fetchJobs = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/workers/jobs', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setJobs(data.jobs || [])
+      }
+    } catch (error) {
+      console.error('Error fetching jobs:', error)
+    }
+  }
+
+  const handleFilterChange = (filterType, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }))
+  }
+
+  const handleWorkTypeToggle = (type) => {
+    setFilters(prev => ({
+      ...prev,
+      workType: prev.workType.includes(type)
+        ? prev.workType.filter(t => t !== type)
+        : [...prev.workType, type]
+    }))
+  }
+
+  const clearFilters = () => {
+    setFilters({
+      workType: [],
+      location: '',
+      salaryRange: '',
+      searchQuery: ''
+    })
+  }
+
   const handleLogout = async () => {
     // Clear cookie and redirect
     clearWorkerToken()
     navigate('/')
   }
+
+  const filteredJobs = jobs.filter(job => {
+    // Filter by work type
+    if (filters.workType.length > 0 && !filters.workType.includes(job.workType)) {
+      return false
+    }
+    
+    // Filter by location
+    if (filters.location && !job.location?.toLowerCase().includes(filters.location.toLowerCase())) {
+      return false
+    }
+    
+    // Filter by search query
+    if (filters.searchQuery && 
+        !job.workType?.toLowerCase().includes(filters.searchQuery.toLowerCase()) &&
+        !job.description?.toLowerCase().includes(filters.searchQuery.toLowerCase()) &&
+        !job.location?.toLowerCase().includes(filters.searchQuery.toLowerCase())) {
+      return false
+    }
+    
+    return true
+  })
 
   if (loading) {
     return (
@@ -69,10 +143,12 @@ const WorkerDashboard = () => {
     )
   }
 
+  const workTypes = ['Plumber', 'Electrician', 'Carpenter', 'Painter', 'Mason', 'Welder', 'Driver', 'Helper', 'Cook', 'Cleaner', 'Other']
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           {/* Left: App Name */}
           <div className="flex items-center gap-3">
@@ -87,6 +163,24 @@ const WorkerDashboard = () => {
             </div>
           </div>
 
+          {/* Center: Search Bar */}
+          <div className="flex-1 max-w-xl mx-4 hidden md:block">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search jobs by title, location..."
+                value={filters.searchQuery}
+                onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
           {/* Right: Profile */}
           <div className="flex items-center gap-4">
             <div className="text-right hidden md:block">
@@ -96,12 +190,12 @@ const WorkerDashboard = () => {
             
             {/* Profile Photo */}
             <div className="relative">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-sm shadow-md cursor-pointer hover:shadow-lg transition-shadow">
                 {worker?.profilePicture ? (
                   <img 
                     src={worker.profilePicture} 
                     alt={worker.name} 
-                    className="w-12 h-12 rounded-full object-cover"
+                    className="w-10 h-10 rounded-full object-cover"
                   />
                 ) : (
                   worker?.name?.charAt(0).toUpperCase()
@@ -111,122 +205,162 @@ const WorkerDashboard = () => {
             </div>
 
             {/* Logout Button */}
-            <button 
+            {/* <button 
               onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+              className="px-3 py-2 text-sm bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
             >
               Logout
-            </button>
+            </button> */}
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-lg shadow-md p-8 mb-8 text-white">
-          <h2 className="text-3xl font-bold mb-2">Welcome back, {worker?.name}! 👋</h2>
+        <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-lg shadow-md p-6 mb-6 text-white">
+          <h2 className="text-2xl font-bold mb-1">Welcome back, {worker?.name}! 👋</h2>
           <p className="text-green-100">Ready to find your next opportunity?</p>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-600">Jobs Applied</h3>
-              <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <p className="text-3xl font-bold text-gray-800">{worker?.appliedJobs?.length || 0}</p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-600">Experience</h3>
-              <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <p className="text-3xl font-bold text-gray-800">{worker?.yearsOfExperience || 0} Years</p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-600">Location</h3>
-              <svg className="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <p className="text-lg font-bold text-gray-800">{worker?.location || 'Not set'}</p>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-600">Status</h3>
-              <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <p className="text-lg font-bold text-green-600 capitalize">{worker?.status || 'Active'}</p>
-          </div>
-        </div>
-
-        {/* Action Cards */}
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer border-2 border-transparent hover:border-green-500">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="bg-green-100 rounded-lg p-3">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+        {/* Layout with Sidebar and Jobs */}
+        <div className="flex gap-6">
+          {/* Left Sidebar - Filters */}
+          <aside className="w-64 flex-shrink-0 hidden lg:block">
+            <div className="bg-white rounded-lg shadow-md p-4 sticky top-24">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-gray-800">Filters</h3>
+                <button 
+                  onClick={clearFilters}
+                  className="text-xs text-green-600 hover:text-green-700 font-semibold"
+                >
+                  Clear all
+                </button>
               </div>
-              <h3 className="text-xl font-bold text-gray-800">Browse Jobs</h3>
-            </div>
-            <p className="text-gray-600 mb-4">Find and apply to new job opportunities</p>
-            <button className="text-green-600 font-semibold hover:text-green-700 flex items-center gap-2">
-              View Jobs
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer border-2 border-transparent hover:border-blue-500">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="bg-blue-100 rounded-lg p-3">
-                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+              {/* Work Type Filter */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Work Type</h4>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {workTypes.map(type => (
+                    <label key={type} className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={filters.workType.includes(type)}
+                        onChange={() => handleWorkTypeToggle(type)}
+                        className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">{type}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-              <h3 className="text-xl font-bold text-gray-800">My Applications</h3>
-            </div>
-            <p className="text-gray-600 mb-4">Track all your job applications</p>
-            <button className="text-blue-600 font-semibold hover:text-blue-700 flex items-center gap-2">
-              View Applications
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer border-2 border-transparent hover:border-purple-500">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="bg-purple-100 rounded-lg p-3">
-                <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+              {/* Location Filter */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Location</h4>
+                <input
+                  type="text"
+                  placeholder="Enter location"
+                  value={filters.location}
+                  onChange={(e) => handleFilterChange('location', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
               </div>
-              <h3 className="text-xl font-bold text-gray-800">My Profile</h3>
+
+              {/* Salary Range Filter */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Salary Range</h4>
+                <select
+                  value={filters.salaryRange}
+                  onChange={(e) => handleFilterChange('salaryRange', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">All Ranges</option>
+                  <option value="0-10000">₹0 - ₹10,000</option>
+                  <option value="10000-20000">₹10,000 - ₹20,000</option>
+                  <option value="20000-30000">₹20,000 - ₹30,000</option>
+                  <option value="30000+">₹30,000+</option>
+                </select>
+              </div>
             </div>
-            <p className="text-gray-600 mb-4">Update your profile and skills</p>
-            <button className="text-purple-600 font-semibold hover:text-purple-700 flex items-center gap-2">
-              Edit Profile
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+          </aside>
+
+          {/* Center - Job Listings */}
+          <div className="flex-1">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-800">
+                {filteredJobs.length} Job{filteredJobs.length !== 1 ? 's' : ''} Available
+              </h2>
+              <select className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                <option>Sort by: Latest</option>
+                <option>Sort by: Salary (High to Low)</option>
+                <option>Sort by: Salary (Low to High)</option>
+              </select>
+            </div>
+
+            {/* Job Cards */}
+            <div className="space-y-4">
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Loading jobs...</p>
+                </div>
+              ) : filteredJobs.length === 0 ? (
+                <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                  <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h3 className="text-xl font-semibold text-gray-700 mb-2">No jobs found</h3>
+                  <p className="text-gray-500">Try adjusting your filters or check back later</p>
+                </div>
+              ) : (
+                filteredJobs.map((job) => (
+                  <div key={job._id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 border border-gray-100">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-gray-800 mb-1">{job.workType}</h3>
+                        <p className="text-sm text-gray-500 mb-2">Posted by: {job.clientId?.companyName || job.clientId?.name || 'Company'}</p>
+                      </div>
+                      <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                        {job.numberOfWorkers} Position{job.numberOfWorkers > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 mb-3 text-sm text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span>{job.location || 'Location not specified'}</span>
+                      </div>
+                      {job.salaryRange && (
+                        <div className="flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>{job.salaryRange}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="text-sm text-gray-700 mb-4 line-clamp-2">
+                      {job.description || 'No description provided'}
+                    </p>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">
+                        Posted {new Date(job.createdAt).toLocaleDateString()}
+                      </span>
+                      <button className="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors">
+                        Apply Now
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </main>
