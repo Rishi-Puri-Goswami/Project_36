@@ -1,0 +1,386 @@
+import { Worker } from "../models/worker_model.js";
+import { Client } from "../models/client_models.js";
+import { ClientPost } from "../models/client_post_model.js";
+import jwt from "jsonwebtoken";
+import { sendOtpSms } from "../utils/smsService.js";
+import { Subscription } from "../models/subscription_model.js";
+import { Plan } from "../models/planes_model.js";
+
+// ============= AUTHENTICATION APIs =============
+
+export const registerWorker = async (req, res) => {
+  try {
+    const { name, email, password, phone, workType, location, yearsOfExperience, age } = req.body;
+
+    // Validation
+    if (!name || !phone || !password || !workType) {
+      return res.status(400).json({ message: "Name, phone, password and work type are required", status: 400 });
+    }
+
+    // Check if worker already exists with this phone number
+    const existingWorkerByPhone = await Worker.findOne({ phone });
+    if (existingWorkerByPhone) {
+      return res.status(400).json({ message: "Worker already exists with this phone number", status: 400 });
+    }
+
+    // Check if worker already exists with this email (if email provided)
+    if (email) {
+      const existingWorkerByEmail = await Worker.findOne({ email });
+      if (existingWorkerByEmail) {
+        return res.status(400).json({ message: "Worker already exists with this email", status: 400 });
+      }
+    }
+
+    // Generate 6 digit random OTP
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    console.log("Generated Worker OTP is:", otp);
+
+    if (!otp) {
+      return res.status(500).json({ message: "Error in generating OTP", status: 500 });
+    }
+
+    // Send OTP via SMS using 2factor.in
+    const smsResult = await sendOtpSms(phone, otp);
+
+    if (!smsResult.success) {
+      return res.status(500).json({
+        message: "Failed to send OTP to phone number",
+        status: 500,
+        error: smsResult.message
+      });
+    }
+
+    const newWorker = new Worker({
+      name,
+      email: email || undefined,
+      password,
+      phone,
+      workType,
+      location: location || undefined,
+      yearsOfExperience: yearsOfExperience || 0,
+      age: age || undefined,
+      otp: {
+        code: otp.toString(),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // OTP valid for 10 minutes
+        attempts: 0,
+        lastSentAt: new Date()
+      },
+      otpVerified: false,
+      status: "approved" // Auto-approve workers
+    });
+
+    await newWorker.save();
+
+    return res.status(201).json({
+      message: "OTP sent to your phone number for verification",
+      status: 201,
+      phone: phone
+    });
+
+  } catch (error) {
+    console.log("Error on register worker:", error);
+    return res.status(500).json({ message: "Internal server error", status: 500 });
+  }
+};
+
+export const verifyWorkerOtp = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    if (!phone || !otp) {
+      return res.status(400).json({ message: "Phone number and OTP required", status: 400 });
+    }
+
+    const worker = await Worker.findOne({ phone });
+
+    if (!worker) {
+      return res.status(400).json({ message: "Invalid phone number or OTP", status: 400 });
+    }
+
+    if (worker.otp.expiresAt < new Date()) {
+      return res.status(400).json({ message: "OTP expired", status: 400 });
+    }
+
+    if (worker.otp.attempts >= 5) {
+      return res.status(400).json({ message: "Max OTP attempts exceeded", status: 400 });
+    }
+
+    if (worker.otp.code != otp) {
+      worker.otp.attempts += 1;
+      await worker.save();
+      return res.status(400).json({ message: "Invalid OTP", status: 400 });
+    }
+
+    // Find free plan
+    const freePlan = await Plan.findOne({ planName: "Free" });
+
+    if (!freePlan) {
+      return res.status(500).json({ message: "Free plan not found, contact support", status: 500 });
+    }
+
+    // Create subscription for worker
+    const createSubscription = new Subscription({
+      userId: worker._id,
+      planId: freePlan._id,
+      userType: "Worker",
+      viewsAllowed: freePlan.viewsAllowed,
+      viewsUsed: 0,
+      startDate: new Date(),
+      status: "active"
+    });
+
+    await createSubscription.save();
+
+    worker.subscription = createSubscription._id;
+    worker.otpVerified = true;
+    worker.otp = undefined;
+
+    await worker.save();
+
+    const token = jwt.sign({ id: worker._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.cookie('workertoken', token, {
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      sameSite: isProduction ? "none" : "lax",
+      secure: isProduction
+    });
+
+    return res.status(200).json({
+      message: "OTP verified successfully",
+      status: 200,
+      token
+    });
+
+  } catch (error) {
+    console.log("Error on verify worker OTP:", error);
+    return res.status(500).json({ message: "Internal server error", status: 500 });
+  }
+};
+
+export const resendWorkerOtp = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ message: "Phone number is required", status: 400 });
+    }
+
+    const worker = await Worker.findOne({ phone });
+    if (!worker) {
+      return res.status(404).json({ message: "Worker not found", status: 404 });
+    }
+
+    // Prevent frequent resends (cooldown 1 min)
+    if (worker.otp && worker.otp.lastSentAt && (new Date() - worker.otp.lastSentAt < 60 * 1000)) {
+      return res.status(429).json({
+        message: "OTP already sent. Please wait 1 minute before requesting again.",
+        status: 429
+      });
+    }
+
+    // Generate random 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    console.log("Resent Worker OTP is:", otp);
+
+    // Send OTP via SMS using 2factor.in
+    const smsResult = await sendOtpSms(phone, otp);
+
+    if (!smsResult.success) {
+      return res.status(500).json({
+        message: "Failed to send OTP to phone number",
+        status: 500,
+        error: smsResult.message
+      });
+    }
+
+    // Update OTP in worker document
+    worker.otp = {
+      code: otp.toString(),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      attempts: 0,
+      lastSentAt: new Date()
+    };
+    await worker.save();
+
+    return res.status(200).json({
+      message: "OTP resent successfully to your phone number",
+      status: 200
+    });
+  } catch (error) {
+    console.error("Error in resendWorkerOtp:", error);
+    return res.status(500).json({ message: "Internal server error", status: 500 });
+  }
+};
+
+export const loginWorker = async (req, res) => {
+  try {
+    const { phone, password } = req.body;
+
+    if (!phone || !password) {
+      return res.status(400).json({ message: "Phone number and password are required", status: 400 });
+    }
+
+    // Find worker by phone
+    const worker = await Worker.findOne({ phone });
+    if (!worker) {
+      return res.status(401).json({ message: "Invalid phone number or password", status: 401 });
+    }
+
+    // Check if OTP is verified
+    if (!worker.otpVerified) {
+      return res.status(403).json({ message: "Please verify your phone number first", status: 403 });
+    }
+
+    // Check password (Note: You should use bcrypt to hash passwords in production)
+    if (worker.password !== password) {
+      return res.status(401).json({ message: "Invalid phone number or password", status: 401 });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ id: worker._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    // Set cookie with appropriate settings for development
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.cookie('workertoken', token, {
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      sameSite: isProduction ? "none" : "lax",
+      secure: isProduction
+    });
+
+    return res.status(200).json({
+      message: "Login successful",
+      status: 200,
+      token,
+      worker: {
+        id: worker._id,
+        name: worker.name,
+        phone: worker.phone,
+        email: worker.email,
+        workType: worker.workType,
+        location: worker.location
+      }
+    });
+
+  } catch (error) {
+    console.error("Error in loginWorker:", error);
+    return res.status(500).json({ message: "Internal server error", status: 500 });
+  }
+};
+
+export const getWorkerProfile = async (req, res) => {
+  try {
+    const worker = await Worker.findById(req.worker._id)
+      .populate('subscription')
+      .select('-password -otp');
+
+    if (!worker) {
+      return res.status(404).json({ message: "Worker not found", status: 404 });
+    }
+
+    return res.status(200).json({
+      status: 200,
+      worker
+    });
+
+  } catch (error) {
+    console.error("Error in getWorkerProfile:", error);
+    return res.status(500).json({ message: "Internal server error", status: 500 });
+  }
+};
+
+// ============= EXISTING APIs =============
+
+export const submitWorkerProfile = async (req, res) => {
+  try {
+    const { name, contactNumber, email, age, workType, yearsOfExperience, location } = req.body;
+    // files: workPhotos (array), idProof (single)
+    const workPhotos = (req.files && req.files.workPhotos) ? req.files.workPhotos.map(f => f.path) : [];
+    const idProof = (req.files && req.files.idProof && req.files.idProof[0]) ? req.files.idProof[0].path : undefined;
+
+    // basic validation
+    if (!name || !contactNumber || !workType) return res.status(400).json({ error: "name, contactNumber and workType are required" });
+
+    // If user is authenticated, attach userId. For now check req.body.userId
+    const userId = req.body.userId;
+
+    const worker = new Worker({
+      userId,
+      name,
+      contactNumber,
+      email,
+      age,
+      workType,
+      yearsOfExperience,
+      location,
+      workPhotos,
+      idProof,
+      status: "pending"
+    });
+
+    await worker.save();
+    return res.status(201).json({ message: "Profile submitted", workerId: worker._id });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const getWorkerById = async (req, res) => {
+  try {
+    const worker = await Worker.findById(req.params.id).select('-password -otp');
+    if (!worker) return res.status(404).json({ error: 'Not found' });
+    return res.json(worker);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+export const listApprovedWorkers = async (req, res) => {
+  try {
+    const workers = await Worker.find({ status: 'approved' })
+      .select('-password -otp')
+      .limit(50);
+    return res.json(workers);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+export const WorkerApplyToPost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const workerId = req.worker._id; // From auth middleware
+
+    const post = await ClientPost.findById(postId);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    // Check if worker has already applied
+    if (post.workerApplications.includes(workerId)) {
+      return res.status(400).json({ error: 'You have already applied to this post' });
+    }
+
+    post.workerApplications.push(workerId);
+    await post.save();
+
+    // Add to worker's applied jobs
+    const worker = await Worker.findById(workerId);
+    if (!worker.appliedJobs.includes(postId)) {
+      worker.appliedJobs.push(postId);
+      await worker.save();
+    }
+
+    return res.status(200).json({ message: 'Application submitted successfully' });
+
+  } catch (error) {
+    console.log("error worker applying to post", error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+
+
