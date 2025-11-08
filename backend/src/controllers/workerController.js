@@ -291,6 +291,42 @@ export const getWorkerProfile = async (req, res) => {
   }
 };
 
+export const updateWorkerProfile = async (req, res) => {
+  try {
+    const workerId = req.worker._id;
+    const { name, email, age, workType, location, yearsOfExperience } = req.body;
+
+    // Find worker
+    const worker = await Worker.findById(workerId);
+    if (!worker) {
+      return res.status(404).json({ message: "Worker not found", status: 404 });
+    }
+
+    // Update fields if provided
+    if (name) worker.name = name;
+    if (email !== undefined) worker.email = email;
+    if (age !== undefined) worker.age = age;
+    if (workType) worker.workType = workType;
+    if (location !== undefined) worker.location = location;
+    if (yearsOfExperience !== undefined) worker.yearsOfExperience = yearsOfExperience;
+
+    await worker.save();
+
+    // Return updated worker without sensitive info
+    const updatedWorker = await Worker.findById(workerId).select('-password -otp');
+
+    return res.status(200).json({
+      message: "Profile updated successfully",
+      status: 200,
+      worker: updatedWorker
+    });
+
+  } catch (error) {
+    console.error("Error in updateWorkerProfile:", error);
+    return res.status(500).json({ message: "Internal server error", status: 500 });
+  }
+};
+
 // ============= EXISTING APIs =============
 
 export const submitWorkerProfile = async (req, res) => {

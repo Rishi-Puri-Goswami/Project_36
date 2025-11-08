@@ -5,6 +5,7 @@ import {
   resendWorkerOtp,
   loginWorker,
   getWorkerProfile,
+  updateWorkerProfile,
   submitWorkerProfile, 
   getWorkerById, 
   listApprovedWorkers,
@@ -21,6 +22,7 @@ workerrouter.post('/verify-otp', verifyWorkerOtp);
 workerrouter.post('/resend-otp', resendWorkerOtp);
 workerrouter.post('/login', loginWorker);
 workerrouter.get('/profile', worker_auth, getWorkerProfile);
+workerrouter.put('/update-profile', worker_auth, updateWorkerProfile);
 
 // ============= WORKER PROFILE ROUTES =============
 workerrouter.post('/submit', upload.single('workerimage'), submitWorkerProfile);

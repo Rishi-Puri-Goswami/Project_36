@@ -14,6 +14,7 @@ import WorkerPage from './component/worker/WorkerPage'
 import WorkerLogin from './component/worker/WorkerLogin'
 import WorkerRegister from './component/worker/WorkerRegister'
 import WorkerDashboard from './component/worker/WorkerDashboard'
+import WorkerProfile from './component/worker/WorkerProfile'
 
 const App = () => {
   return (
@@ -33,6 +34,7 @@ const App = () => {
         <Route path="/worker/login" element={<WorkerLogin />} />
         <Route path="/worker/register" element={<WorkerRegister />} />
         <Route path="/worker/dashboard" element={<WorkerDashboard />} />
+        <Route path="/worker/profile" element={<WorkerProfile />} />
       </Routes>
     </Router>
   )

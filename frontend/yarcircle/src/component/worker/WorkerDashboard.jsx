@@ -215,8 +215,12 @@ const WorkerDashboard = () => {
               </div>
               
               {/* Profile Photo */}
-              <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-sm shadow-md cursor-pointer hover:shadow-lg transition-shadow">
+              <div 
+                className="relative cursor-pointer"
+                onClick={() => navigate('/worker/profile')}
+                title="View Profile"
+              >
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-shadow">
                   {worker?.profilePicture ? (
                     <img 
                       src={worker.profilePicture} 
@@ -279,7 +283,7 @@ const WorkerDashboard = () => {
 
               <button 
                 onClick={() => {
-                  // Navigate to profile
+                  navigate('/worker/profile')
                   setIsMenuOpen(false)
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
