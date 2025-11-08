@@ -257,7 +257,7 @@ const JobDetails = () => {
           {job.workerApplications && job.workerApplications.length > 0 ? (
             <div className="space-y-4">
               {job.workerApplications.map((worker, index) => (
-                <div key={index} className="border rounded-lg p-4 hover:border-blue-300 transition-colors">
+                <div key={worker._id || index} className="border rounded-lg p-4 hover:border-blue-300 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-lg">
@@ -269,7 +269,10 @@ const JobDetails = () => {
                         <p className="text-sm text-gray-600">{worker.phone}</p>
                       </div>
                     </div>
-                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+                    <button 
+                      onClick={() => navigate(`/client/worker-profile/${worker._id}`)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                    >
                       View Profile
                     </button>
                   </div>

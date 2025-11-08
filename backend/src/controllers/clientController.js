@@ -1,6 +1,7 @@
 import { ClientPost } from "../models/client_post_model.js";
 import { Payment } from "../models/payment_model.js";
 import { Client } from "../models/client_models.js";
+import { Worker } from "../models/worker_model.js";
 import jwt from "jsonwebtoken";
 import { Subscription } from "../models/subscription_model.js";
 import  razorpay  from "../config/razorpay.js";
@@ -731,6 +732,94 @@ export const deleteJobPost = async (req, res) => {
     return res.status(500).json({ error: "Server error in deleting job post" });
   }
 };
+
+// Get all available jobs for workers (public route)
+export const getAllAvailableJobs = async (req, res) => {
+  try {
+    const { workType, location, salaryRange, search } = req.query;
+
+    // Build filter query
+    const filter = {
+      expiryDate: { $gte: new Date() } // Only active jobs
+    };
+
+    if (workType && workType !== 'all') {
+      filter.workType = workType;
+    }
+
+    if (location && location.trim() !== '') {
+      filter.location = { $regex: location, $options: 'i' }; // Case-insensitive search
+    }
+
+    if (salaryRange && salaryRange !== 'all') {
+      filter.salaryRange = salaryRange;
+    }
+
+    if (search && search.trim() !== '') {
+      filter.$or = [
+        { description: { $regex: search, $options: 'i' } },
+        { workType: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const jobs = await ClientPost.find(filter)
+      .populate('clientId', 'name companyName email phone')
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    return res.status(200).json({ 
+      message: "Jobs fetched successfully", 
+      jobs 
+    });
+
+  } catch (error) {
+    console.error("Error in getAllAvailableJobs controller:", error);
+    return res.status(500).json({ error: "Server error in fetching jobs" });
+  }
+};
+
+// Get all available workers for clients (public route for searching workers)
+export const getAllAvailableWorkers = async (req, res) => {
+  try {
+    const { workType, location, search } = req.query;
+
+    // Build filter query
+    const filter = {};
+
+    if (workType && workType !== 'all' && workType.trim() !== '') {
+      filter.workType = { $regex: workType, $options: 'i' }; // Case-insensitive
+    }
+
+    if (location && location.trim() !== '') {
+      filter.location = { $regex: location, $options: 'i' }; // Case-insensitive search
+    }
+
+    if (search && search.trim() !== '') {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { workType: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } },
+        { skills: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const workers = await Worker.find(filter)
+      .select('-password -otp')
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    return res.status(200).json({ 
+      message: "Workers fetched successfully", 
+      workers 
+    });
+
+  } catch (error) {
+    console.error("Error in getAllAvailableWorkers controller:", error);
+    return res.status(500).json({ error: "Server error in fetching workers" });
+  }
+};
+
 
 
 

@@ -206,11 +206,16 @@ const MyJobs = () => {
                     <span>Posted: {formatDate(job.createdAt)}</span>
                     <span>Expires: {formatDate(job.expiryDate)}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-600">Applications:</span>
-                    <span className="px-3 py-1 bg-blue-100 text-blue-700 font-semibold rounded-full">
-                      {job.workerApplications?.length || 0}
-                    </span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => navigate(`/client/jobs/${job._id}`)}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1"
+                    >
+                      <span>View Applications</span>
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 font-semibold rounded-full text-xs">
+                        {job.workerApplications?.length || 0}
+                      </span>
+                    </button>
                   </div>
                 </div>
               </div>

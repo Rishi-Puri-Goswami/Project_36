@@ -7,7 +7,12 @@ const WorkerDashboard = () => {
   const [worker, setWorker] = useState(null)
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState([])
+  const [filteredJobs, setFilteredJobs] = useState([])
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [applyingJobId, setApplyingJobId] = useState(null)
+  const [message, setMessage] = useState({ type: '', text: '' })
+  const [workTypeSearch, setWorkTypeSearch] = useState('')
+  const [showSearchTips, setShowSearchTips] = useState(false)
   const [filters, setFilters] = useState({
     workType: [],
     location: '',
@@ -24,6 +29,11 @@ const WorkerDashboard = () => {
     fetchWorkerData()
     fetchJobs()
   }, [navigate])
+
+  useEffect(() => {
+    // Apply filters whenever jobs or filters change
+    applyFilters()
+  }, [jobs, filters])
 
   const fetchWorkerData = async () => {
     try {
@@ -63,7 +73,26 @@ const WorkerDashboard = () => {
 
   const fetchJobs = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/workers/jobs', {
+      // Build query parameters
+      const params = new URLSearchParams()
+      
+      if (filters.workType.length > 0) {
+        params.append('workType', filters.workType[0]) // For now, use first selected type
+      }
+      
+      if (filters.location.trim()) {
+        params.append('location', filters.location)
+      }
+      
+      if (filters.salaryRange && filters.salaryRange !== 'all') {
+        params.append('salaryRange', filters.salaryRange)
+      }
+      
+      if (filters.searchQuery.trim()) {
+        params.append('search', filters.searchQuery)
+      }
+
+      const response = await fetch(`http://localhost:5000/api/clients/jobs/available?${params.toString()}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -77,6 +106,195 @@ const WorkerDashboard = () => {
       }
     } catch (error) {
       console.error('Error fetching jobs:', error)
+      setJobs([])
+    }
+  }
+
+  const applyFilters = () => {
+    let filtered = [...jobs]
+
+    // Filter by work type (case-insensitive)
+    if (filters.workType.length > 0) {
+      filtered = filtered.filter(job => 
+        filters.workType.some(selectedType => 
+          job.workType && job.workType.toLowerCase() === selectedType.toLowerCase()
+        )
+      )
+    }
+
+    // Filter by location (case-insensitive)
+    if (filters.location.trim()) {
+      const locationLower = filters.location.toLowerCase()
+      filtered = filtered.filter(job => 
+        job.location && job.location.toLowerCase().includes(locationLower)
+      )
+    }
+
+    // Filter by salary range (case-insensitive)
+    if (filters.salaryRange && filters.salaryRange !== 'all') {
+      filtered = filtered.filter(job => 
+        job.salaryRange && job.salaryRange.toLowerCase() === filters.salaryRange.toLowerCase()
+      )
+    }
+
+    // Advanced search with fuzzy matching (case-insensitive, partial match, spelling tolerance)
+    if (filters.searchQuery.trim()) {
+      const query = filters.searchQuery.toLowerCase().trim()
+      
+      filtered = filtered.filter(job => {
+        // Get searchable fields
+        const description = (job.description || '').toLowerCase()
+        const workType = (job.workType || '').toLowerCase()
+        const location = (job.location || '').toLowerCase()
+        const companyName = (job.clientId?.companyName || job.clientId?.name || '').toLowerCase()
+        
+        // Exact match or partial match
+        if (description.includes(query) || 
+            workType.includes(query) || 
+            location.includes(query) ||
+            companyName.includes(query)) {
+          return true
+        }
+        
+        // Split query into words for better matching
+        const queryWords = query.split(/\s+/)
+        
+        // Check if any query word matches (partial)
+        const matchesAnyWord = queryWords.some(word => 
+          description.includes(word) || 
+          workType.includes(word) || 
+          location.includes(word) ||
+          companyName.includes(word)
+        )
+        
+        if (matchesAnyWord) {
+          return true
+        }
+        
+        // Fuzzy matching for spelling errors
+        // Check if query is similar to workType (for misspellings like "plum" -> "plumber")
+        if (isFuzzyMatch(query, workType) || 
+            isFuzzyMatch(query, description) ||
+            isFuzzyMatch(query, location)) {
+          return true
+        }
+        
+        // Check each word for fuzzy match
+        const matchesFuzzyWord = queryWords.some(word => 
+          isFuzzyMatch(word, workType) || 
+          isFuzzyMatch(word, description.split(/\s+/).join(' ')) ||
+          isFuzzyMatch(word, location)
+        )
+        
+        return matchesFuzzyWord
+      })
+    }
+
+    setFilteredJobs(filtered)
+  }
+
+  // Fuzzy matching function for spelling tolerance
+  const isFuzzyMatch = (query, target) => {
+    if (!query || !target) return false
+    
+    query = query.toLowerCase()
+    target = target.toLowerCase()
+    
+    // If query is contained in target, it's a match
+    if (target.includes(query)) {
+      return true
+    }
+    
+    // Check if query matches the beginning of any word in target
+    const words = target.split(/\s+/)
+    if (words.some(word => word.startsWith(query))) {
+      return true
+    }
+    
+    // Calculate similarity score (Levenshtein-like simple version)
+    // Check if query is similar enough to target or any word in target
+    for (const word of words) {
+      if (word.length >= 3 && query.length >= 3) {
+        const similarity = calculateSimilarity(query, word)
+        // If similarity is high enough (70% or more), consider it a match
+        if (similarity >= 0.7) {
+          return true
+        }
+      }
+    }
+    
+    return false
+  }
+
+  // Simple similarity calculation (based on common characters)
+  const calculateSimilarity = (str1, str2) => {
+    const longer = str1.length > str2.length ? str1 : str2
+    const shorter = str1.length > str2.length ? str2 : str1
+    
+    if (longer.length === 0) return 1.0
+    
+    // Count matching characters in order
+    let matches = 0
+    let shorterIndex = 0
+    
+    for (let i = 0; i < longer.length && shorterIndex < shorter.length; i++) {
+      if (longer[i] === shorter[shorterIndex]) {
+        matches++
+        shorterIndex++
+      }
+    }
+    
+    // Calculate similarity ratio
+    return matches / longer.length
+  }
+
+  const handleApplyToJob = async (jobId) => {
+    setApplyingJobId(jobId)
+    setMessage({ type: '', text: '' })
+
+    try {
+      const token = localStorage.getItem('workerToken')
+      
+      const headers = {
+        'Content-Type': 'application/json'
+      }
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const response = await fetch(`http://localhost:5000/api/workers/apply/${jobId}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: headers
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Application submitted successfully!' })
+        // Refresh jobs to update UI
+        fetchJobs()
+        
+        setTimeout(() => {
+          setMessage({ type: '', text: '' })
+        }, 3000)
+      } else {
+        setMessage({ type: 'error', text: data.error || data.message || 'Failed to apply' })
+        
+        setTimeout(() => {
+          setMessage({ type: '', text: '' })
+        }, 3000)
+      }
+    } catch (error) {
+      console.error('Error applying to job:', error)
+      setMessage({ type: 'error', text: 'Network error. Please try again.' })
+      
+      setTimeout(() => {
+        setMessage({ type: '', text: '' })
+      }, 3000)
+    } finally {
+      setApplyingJobId(null)
     }
   }
 
@@ -88,12 +306,17 @@ const WorkerDashboard = () => {
   }
 
   const handleWorkTypeToggle = (type) => {
-    setFilters(prev => ({
-      ...prev,
-      workType: prev.workType.includes(type)
-        ? prev.workType.filter(t => t !== type)
-        : [...prev.workType, type]
-    }))
+    setFilters(prev => {
+      // Check if the type is already selected (case-insensitive)
+      const isSelected = prev.workType.some(t => t.toLowerCase() === type.toLowerCase())
+      
+      return {
+        ...prev,
+        workType: isSelected
+          ? prev.workType.filter(t => t.toLowerCase() !== type.toLowerCase())
+          : [...prev.workType, type]
+      }
+    })
   }
 
   const clearFilters = () => {
@@ -103,6 +326,7 @@ const WorkerDashboard = () => {
       salaryRange: '',
       searchQuery: ''
     })
+    setWorkTypeSearch('')
   }
 
   const handleLogout = async () => {
@@ -110,28 +334,6 @@ const WorkerDashboard = () => {
     clearWorkerToken()
     navigate('/')
   }
-
-  const filteredJobs = jobs.filter(job => {
-    // Filter by work type
-    if (filters.workType.length > 0 && !filters.workType.includes(job.workType)) {
-      return false
-    }
-    
-    // Filter by location
-    if (filters.location && !job.location?.toLowerCase().includes(filters.location.toLowerCase())) {
-      return false
-    }
-    
-    // Filter by search query
-    if (filters.searchQuery && 
-        !job.workType?.toLowerCase().includes(filters.searchQuery.toLowerCase()) &&
-        !job.description?.toLowerCase().includes(filters.searchQuery.toLowerCase()) &&
-        !job.location?.toLowerCase().includes(filters.searchQuery.toLowerCase())) {
-      return false
-    }
-    
-    return true
-  })
 
   if (loading) {
     return (
@@ -165,7 +367,7 @@ const WorkerDashboard = () => {
           </div>
 
           {/* Center: Search Bar */}
-          <div className="flex-1 max-w-xl mx-4 hidden md:block">
+          <div className="flex-1 max-w-xl mx-4 hidden md:block relative">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,12 +376,54 @@ const WorkerDashboard = () => {
               </div>
               <input
                 type="text"
-                placeholder="Search jobs by title, location..."
+                placeholder="Search jobs... (Try: plum, paint, electric)"
                 value={filters.searchQuery}
                 onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                onFocus={() => setShowSearchTips(true)}
+                onBlur={() => setTimeout(() => setShowSearchTips(false), 200)}
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
+              {filters.searchQuery && (
+                <button
+                  onClick={() => handleFilterChange('searchQuery', '')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
+            
+            {/* Search Tips Tooltip */}
+            {showSearchTips && !filters.searchQuery && (
+              <div className="absolute top-full mt-2 left-0 right-0 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-50">
+                <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Smart Search Tips
+                </h4>
+                <ul className="text-xs text-gray-600 space-y-1">
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 mt-0.5">•</span>
+                    <span><strong>Partial words:</strong> "plum" finds "Plumber"</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 mt-0.5">•</span>
+                    <span><strong>Case insensitive:</strong> "PAINT" = "paint" = "Painter"</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 mt-0.5">•</span>
+                    <span><strong>Spelling tolerant:</strong> "electrisian" finds "Electrician"</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-600 mt-0.5">•</span>
+                    <span><strong>Multi-field:</strong> Searches work type, location, description</span>
+                  </li>
+                </ul>
+              </div>
+            )}
           </div>
 
           {/* Right: Navigation & Profile */}
@@ -350,6 +594,54 @@ const WorkerDashboard = () => {
           <p className="text-green-100">Ready to find your next opportunity?</p>
         </div>
 
+        {/* Mobile Search Bar */}
+        <div className="md:hidden mb-4">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              placeholder="Search jobs... (Try: plum, paint, electric)"
+              value={filters.searchQuery}
+              onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
+              className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white shadow-sm"
+            />
+            {filters.searchQuery && (
+              <button
+                onClick={() => handleFilterChange('searchQuery', '')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Success/Error Message */}
+        {message.text && (
+          <div className={`mb-4 p-4 rounded-lg ${
+            message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}>
+            <div className="flex items-center">
+              {message.type === 'success' ? (
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              )}
+              {message.text}
+            </div>
+          </div>
+        )}
+
         {/* Layout with Sidebar and Jobs */}
         <div className="flex gap-6">
           {/* Left Sidebar - Filters */}
@@ -368,18 +660,42 @@ const WorkerDashboard = () => {
               {/* Work Type Filter */}
               <div className="mb-6">
                 <h4 className="text-sm font-semibold text-gray-700 mb-3">Work Type</h4>
+                
+                {/* Search bar for work types */}
+                <div className="mb-3">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Search work type..."
+                      value={workTypeSearch}
+                      onChange={(e) => setWorkTypeSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {workTypes.map(type => (
-                    <label key={type} className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={filters.workType.includes(type)}
-                        onChange={() => handleWorkTypeToggle(type)}
-                        className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">{type}</span>
-                    </label>
-                  ))}
+                  {workTypes
+                    .filter(type => type.toLowerCase().includes(workTypeSearch.toLowerCase()))
+                    .map(type => (
+                      <label key={type} className="flex items-center cursor-pointer hover:bg-gray-50 p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={filters.workType.some(selected => selected.toLowerCase() === type.toLowerCase())}
+                          onChange={() => handleWorkTypeToggle(type)}
+                          className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">{type}</span>
+                      </label>
+                    ))}
+                  {workTypes.filter(type => type.toLowerCase().includes(workTypeSearch.toLowerCase())).length === 0 && (
+                    <p className="text-sm text-gray-500 text-center py-2">No work types found</p>
+                  )}
                 </div>
               </div>
 
@@ -480,8 +796,22 @@ const WorkerDashboard = () => {
                       <span className="text-xs text-gray-500">
                         Posted {new Date(job.createdAt).toLocaleDateString()}
                       </span>
-                      <button className="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors">
-                        Apply Now
+                      <button 
+                        onClick={() => handleApplyToJob(job._id)}
+                        disabled={applyingJobId === job._id || job.workerApplications?.includes(worker?._id)}
+                        className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                          job.workerApplications?.includes(worker?._id)
+                            ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                            : applyingJobId === job._id
+                            ? 'bg-green-400 text-white cursor-wait'
+                            : 'bg-green-600 text-white hover:bg-green-700'
+                        }`}
+                      >
+                        {job.workerApplications?.includes(worker?._id)
+                          ? 'Applied ✓'
+                          : applyingJobId === job._id
+                          ? 'Applying...'
+                          : 'Apply Now'}
                       </button>
                     </div>
                   </div>

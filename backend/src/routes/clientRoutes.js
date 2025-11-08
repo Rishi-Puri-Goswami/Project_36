@@ -18,7 +18,9 @@ import {
   getMyJobPosts,
   getJobPostById,
   updateJobPost,
-  deleteJobPost
+  deleteJobPost,
+  getAllAvailableJobs,
+  getAllAvailableWorkers
 } from "../controllers/clientController.js";
 import { clint_auth } from "../middlewares/clint_middlewares/clint_auth.js";
 
@@ -32,6 +34,12 @@ clientRouter.post('/login', loginClint);
 clientRouter.get('/verify-auth', verifyAuth);
 clientRouter.get('/profile', getProfile);
 clientRouter.post('/logout', logoutClint);
+
+// Worker Search routes (public)
+clientRouter.get('/workers/available', getAllAvailableWorkers); // Public route for clients to search workers
+
+// Job Post routes (public)
+clientRouter.get('/jobs/available', getAllAvailableJobs); // Public route for workers to see jobs
 
 // Job Post routes (auth required)
 clientRouter.post('/jobs/create', clint_auth, createJobPost);
