@@ -8,6 +8,15 @@ const WorkerProfile = () => {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
   const [isEditing, setIsEditing] = useState(false)
+  const [posts, setPosts] = useState([])
+  const [showCreatePost, setShowCreatePost] = useState(false)
+  const [newPost, setNewPost] = useState({
+    title: '',
+    description: '',
+    skills: '',
+    availability: '',
+    expectedSalary: ''
+  })
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
@@ -26,6 +35,7 @@ const WorkerProfile = () => {
       return
     }
     fetchWorkerData()
+    fetchWorkerPosts()
   }, [navigate])
 
   const fetchWorkerData = async () => {
@@ -69,6 +79,133 @@ const WorkerProfile = () => {
       navigate('/worker/login')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchWorkerPosts = async () => {
+    try {
+      const token = localStorage.getItem('workerToken')
+      
+      const headers = {
+        'Content-Type': 'application/json'
+      }
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const response = await fetch('http://localhost:5000/api/workers/my-posts', {
+        method: 'GET',
+        credentials: 'include',
+        headers: headers
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setPosts(data.posts || [])
+      }
+    } catch (error) {
+      console.error('Error fetching posts:', error)
+    }
+  }
+
+  const handlePostInputChange = (e) => {
+    const { name, value } = e.target
+    setNewPost(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handleCreatePost = async () => {
+    if (!newPost.title || !newPost.description) {
+      setMessage({ type: 'error', text: 'Title and description are required' })
+      return
+    }
+
+    setSaving(true)
+    setMessage({ type: '', text: '' })
+
+    try {
+      const token = localStorage.getItem('workerToken')
+      
+      const headers = {
+        'Content-Type': 'application/json'
+      }
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const response = await fetch('http://localhost:5000/api/workers/create-post', {
+        method: 'POST',
+        credentials: 'include',
+        headers: headers,
+        body: JSON.stringify(newPost)
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Post created successfully!' })
+        setShowCreatePost(false)
+        setNewPost({
+          title: '',
+          description: '',
+          skills: '',
+          availability: '',
+          expectedSalary: ''
+        })
+        fetchWorkerPosts() // Refresh posts list
+        
+        setTimeout(() => {
+          setMessage({ type: '', text: '' })
+        }, 3000)
+      } else {
+        setMessage({ type: 'error', text: data.message || 'Failed to create post' })
+      }
+    } catch (error) {
+      console.error('Error creating post:', error)
+      setMessage({ type: 'error', text: 'Network error. Please try again.' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeletePost = async (postId) => {
+    if (!confirm('Are you sure you want to delete this post?')) return
+
+    try {
+      const token = localStorage.getItem('workerToken')
+      
+      const headers = {
+        'Content-Type': 'application/json'
+      }
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const response = await fetch(`http://localhost:5000/api/workers/delete-post/${postId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: headers
+      })
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Post deleted successfully!' })
+        fetchWorkerPosts()
+        
+        setTimeout(() => {
+          setMessage({ type: '', text: '' })
+        }, 3000)
+      } else {
+        const data = await response.json()
+        setMessage({ type: 'error', text: data.message || 'Failed to delete post' })
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error)
+      setMessage({ type: 'error', text: 'Network error. Please try again.' })
     }
   }
 
@@ -375,6 +512,16 @@ const WorkerProfile = () => {
                 My Applications
               </button>
               <button
+                onClick={() => setActiveTab('posts')}
+                className={`px-6 py-4 text-sm font-semibold border-b-2 transition-colors ${
+                  activeTab === 'posts'
+                    ? 'border-green-600 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                My Posts
+              </button>
+              <button
                 onClick={() => setActiveTab('details')}
                 className={`px-6 py-4 text-sm font-semibold border-b-2 transition-colors ${
                   activeTab === 'details'
@@ -464,6 +611,173 @@ const WorkerProfile = () => {
                     >
                       Browse Jobs
                     </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'posts' && (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-800">My Posts</h3>
+                  <button
+                    onClick={() => setShowCreatePost(!showCreatePost)}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    {showCreatePost ? 'Cancel' : 'Create Post'}
+                  </button>
+                </div>
+
+                {showCreatePost && (
+                  <div className="bg-gray-50 rounded-lg p-6 mb-6 border-2 border-green-200">
+                    <h4 className="text-md font-semibold text-gray-800 mb-4">Create New Post</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                        <input
+                          type="text"
+                          name="title"
+                          value={newPost.title}
+                          onChange={handlePostInputChange}
+                          placeholder="e.g., Experienced Plumber Available"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                        <textarea
+                          name="description"
+                          value={newPost.description}
+                          onChange={handlePostInputChange}
+                          placeholder="Describe your services, experience, and what makes you stand out..."
+                          rows="4"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Skills</label>
+                          <input
+                            type="text"
+                            name="skills"
+                            value={newPost.skills}
+                            onChange={handlePostInputChange}
+                            placeholder="e.g., Plumbing, Carpentry, Electrical"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Availability</label>
+                          <input
+                            type="text"
+                            name="availability"
+                            value={newPost.availability}
+                            onChange={handlePostInputChange}
+                            placeholder="e.g., Full-time, Part-time, Weekends"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Expected Salary</label>
+                        <input
+                          type="text"
+                          name="expectedSalary"
+                          value={newPost.expectedSalary}
+                          onChange={handlePostInputChange}
+                          placeholder="e.g., ₹25,000 - ₹35,000 per month"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          onClick={handleCreatePost}
+                          disabled={saving}
+                          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                        >
+                          {saving ? 'Creating...' : 'Create Post'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowCreatePost(false)
+                            setNewPost({
+                              title: '',
+                              description: '',
+                              skills: '',
+                              availability: '',
+                              expectedSalary: ''
+                            })
+                          }}
+                          className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {posts.length > 0 ? (
+                  <div className="space-y-4">
+                    {posts.map((post) => (
+                      <div key={post._id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h4 className="text-lg font-semibold text-gray-800 mb-2">{post.title}</h4>
+                            <p className="text-gray-600 mb-3">{post.description}</p>
+                          </div>
+                          <button
+                            onClick={() => handleDeletePost(post._id)}
+                            className="ml-4 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete post"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="grid md:grid-cols-3 gap-3 text-sm">
+                          {post.skills && (
+                            <div className="flex items-center gap-2">
+                              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-gray-600"><strong>Skills:</strong> {post.skills}</span>
+                            </div>
+                          )}
+                          {post.availability && (
+                            <div className="flex items-center gap-2">
+                              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-gray-600"><strong>Availability:</strong> {post.availability}</span>
+                            </div>
+                          )}
+                          {post.expectedSalary && (
+                            <div className="flex items-center gap-2">
+                              <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-gray-600"><strong>Salary:</strong> {post.expectedSalary}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3 text-xs text-gray-500">
+                          Posted on {new Date(post.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                    </svg>
+                    <p className="text-gray-500 mb-2">No posts yet</p>
+                    <p className="text-sm text-gray-400">Create a post to showcase your skills and availability</p>
                   </div>
                 )}
               </div>

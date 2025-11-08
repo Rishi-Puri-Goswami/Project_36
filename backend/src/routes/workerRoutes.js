@@ -9,7 +9,11 @@ import {
   submitWorkerProfile, 
   getWorkerById, 
   listApprovedWorkers,
-  WorkerApplyToPost
+  WorkerApplyToPost,
+  createWorkerPost,
+  getWorkerPosts,
+  deleteWorkerPost,
+  getAllWorkerPosts
 } from "../controllers/workerController.js";
 import { upload } from "../middlewares/uploads/upload.js";
 import { worker_auth } from "../middlewares/worker_middlewares/worker_auth.js";
@@ -24,13 +28,19 @@ workerrouter.post('/login', loginWorker);
 workerrouter.get('/profile', worker_auth, getWorkerProfile);
 workerrouter.put('/update-profile', worker_auth, updateWorkerProfile);
 
-// ============= WORKER PROFILE ROUTES =============
-workerrouter.post('/submit', upload.single('workerimage'), submitWorkerProfile);
-workerrouter.get('/:id', getWorkerById);
-workerrouter.get('/', listApprovedWorkers);
+// ============= WORKER POST ROUTES (Must come before /:id route) =============
+workerrouter.post('/create-post', worker_auth, createWorkerPost);
+workerrouter.get('/my-posts', worker_auth, getWorkerPosts);
+workerrouter.delete('/delete-post/:postId', worker_auth, deleteWorkerPost);
+workerrouter.get('/all-posts', getAllWorkerPosts); // Public route to view all worker posts
 
 // ============= JOB APPLICATION ROUTES =============
 workerrouter.post('/apply/:postId', worker_auth, WorkerApplyToPost);
+
+// ============= WORKER PROFILE ROUTES (/:id must come last to avoid conflicts) =============
+workerrouter.post('/submit', upload.single('workerimage'), submitWorkerProfile);
+workerrouter.get('/', listApprovedWorkers);
+workerrouter.get('/:id', getWorkerById);
 
 export default workerrouter;
 

@@ -1,6 +1,7 @@
 import { Worker } from "../models/worker_model.js";
 import { Client } from "../models/client_models.js";
 import { ClientPost } from "../models/client_post_model.js";
+import { WorkerPost } from "../models/worker_post_model.js";
 import jwt from "jsonwebtoken";
 import { sendOtpSms } from "../utils/smsService.js";
 import { Subscription } from "../models/subscription_model.js";
@@ -415,6 +416,108 @@ export const WorkerApplyToPost = async (req, res) => {
   } catch (error) {
     console.log("error worker applying to post", error);
     return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// ============= WORKER POST APIs =============
+
+export const createWorkerPost = async (req, res) => {
+  try {
+    const workerId = req.worker._id; // From auth middleware
+    const { title, description, skills, availability, expectedSalary } = req.body;
+
+    // Validation
+    if (!title || !description) {
+      return res.status(400).json({ message: "Title and description are required", status: 400 });
+    }
+
+    // Create new post
+    const newPost = new WorkerPost({
+      worker: workerId,
+      title,
+      description,
+      skills,
+      availability,
+      expectedSalary
+    });
+
+    await newPost.save();
+
+    return res.status(201).json({ 
+      message: "Post created successfully", 
+      post: newPost,
+      status: 201 
+    });
+
+  } catch (error) {
+    console.log("Error creating worker post:", error);
+    return res.status(500).json({ message: "Server error", status: 500 });
+  }
+};
+
+export const getWorkerPosts = async (req, res) => {
+  try {
+    const workerId = req.worker._id; // From auth middleware
+
+    const posts = await WorkerPost.find({ worker: workerId })
+      .sort({ createdAt: -1 }); // Most recent first
+
+    return res.status(200).json({ 
+      posts,
+      status: 200 
+    });
+
+  } catch (error) {
+    console.log("Error fetching worker posts:", error);
+    return res.status(500).json({ message: "Server error", status: 500 });
+  }
+};
+
+export const deleteWorkerPost = async (req, res) => {
+  try {
+    const workerId = req.worker._id; // From auth middleware
+    const { postId } = req.params;
+
+    // Find the post
+    const post = await WorkerPost.findById(postId);
+    
+    if (!post) {
+      return res.status(404).json({ message: "Post not found", status: 404 });
+    }
+
+    // Check if the post belongs to the worker
+    if (post.worker.toString() !== workerId.toString()) {
+      return res.status(403).json({ message: "Unauthorized to delete this post", status: 403 });
+    }
+
+    await WorkerPost.findByIdAndDelete(postId);
+
+    return res.status(200).json({ 
+      message: "Post deleted successfully",
+      status: 200 
+    });
+
+  } catch (error) {
+    console.log("Error deleting worker post:", error);
+    return res.status(500).json({ message: "Server error", status: 500 });
+  }
+};
+
+export const getAllWorkerPosts = async (req, res) => {
+  try {
+    // Get all active worker posts with worker details
+    const posts = await WorkerPost.find({ status: 'active' })
+      .populate('worker', 'name phone email location workType yearsOfExperience profilePicture')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({ 
+      posts,
+      status: 200 
+    });
+
+  } catch (error) {
+    console.log("Error fetching all worker posts:", error);
+    return res.status(500).json({ message: "Server error", status: 500 });
   }
 };
 
