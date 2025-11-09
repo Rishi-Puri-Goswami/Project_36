@@ -16,6 +16,11 @@ import WorkerLogin from './component/worker/WorkerLogin'
 import WorkerRegister from './component/worker/WorkerRegister'
 import WorkerDashboard from './component/worker/WorkerDashboard'
 import WorkerProfile from './component/worker/WorkerProfile'
+import CancellationRefund from './component/policies/CancellationRefund'
+import ContactUs from './component/policies/ContactUs'
+import Privacy from './component/policies/Privacy'
+import Shipping from './component/policies/Shipping'
+import Terms from './component/policies/Terms'
 
 const App = () => {
   return (
@@ -37,6 +42,13 @@ const App = () => {
         <Route path="/worker/register" element={<WorkerRegister />} />
         <Route path="/worker/dashboard" element={<WorkerDashboard />} />
         <Route path="/worker/profile" element={<WorkerProfile />} />
+        <Route path="/cancellation-refund" element={<CancellationRefund />} />
+        <Route path="/contact-us" element={<ContactUs />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/shipping" element={<Shipping />} />
+        <Route path="/terms" element={<Terms />} />
+
+
       </Routes>
     </Router>
   )
