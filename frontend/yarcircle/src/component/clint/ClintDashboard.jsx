@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { logout } from '../../utils/auth'
 import { isClientAuthenticated, clearClientToken } from '../../utils/clientAuth'
+import { API_URL } from '../../config/api'
 
 const ClintDashboard = () => {
   const navigate = useNavigate()
@@ -45,8 +46,8 @@ const ClintDashboard = () => {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      
-      const response = await fetch('http://localhost:5000/api/clients/profile', {
+
+      const response = await fetch(`${API_URL}/clients/profile`, {
         method: 'GET',
         credentials: 'include',
         headers: headers
@@ -71,7 +72,7 @@ const ClintDashboard = () => {
 
   const fetchWorkers = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/clients/workers/available', {
+      const response = await fetch(`${API_URL}/clients/workers/available`, {
         method: 'GET',
         credentials: 'include'
       })

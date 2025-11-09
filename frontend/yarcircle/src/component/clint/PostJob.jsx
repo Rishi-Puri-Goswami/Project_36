@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { API_URL } from '../../config/api'
 
 const PostJob = () => {
   const navigate = useNavigate()
@@ -29,7 +30,7 @@ const PostJob = () => {
     setLoading(true)
 
     try {
-      const response = await fetch('http://localhost:5000/api/clients/jobs/create', {
+      const response = await fetch(`${API_URL}/clients/jobs/create`, {
         method: 'POST',
         credentials: 'include',
         headers: {

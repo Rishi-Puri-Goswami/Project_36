@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { API_URL } from '../../config/api'
 
 const WorkerProfileView = () => {
   const navigate = useNavigate()
@@ -14,7 +15,7 @@ const WorkerProfileView = () => {
 
   const fetchWorkerProfile = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/workers/${workerId}`, {
+      const response = await fetch(`${API_URL}/workers/${workerId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {

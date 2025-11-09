@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { API_URL } from '../../config/api'
 
 const MyJobs = () => {
   const navigate = useNavigate()
@@ -13,7 +14,7 @@ const MyJobs = () => {
 
   const fetchMyJobs = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/clients/jobs/my-jobs', {
+      const response = await fetch(`${API_URL}/clients/jobs/my-jobs`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -42,7 +43,7 @@ const MyJobs = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/clients/jobs/${jobId}`, {
+      const response = await fetch(`${API_URL}/clients/jobs/${jobId}`, {
         method: 'DELETE',
         credentials: 'include'
       })

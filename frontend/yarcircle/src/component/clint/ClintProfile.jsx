@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { logout } from '../../utils/auth'
 import { isClientAuthenticated, clearClientToken } from '../../utils/clientAuth'
+import { API_URL } from '../../config/api'
 
 const ClintProfile = () => {
   const navigate = useNavigate()
@@ -20,7 +21,7 @@ const ClintProfile = () => {
 
   const fetchClientData = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/clients/profile', {
+      const response = await fetch(`${API_URL}/clients/profile`, {
         method: 'GET',
         credentials: 'include',
         headers: {

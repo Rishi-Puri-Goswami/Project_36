@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isWorkerAuthenticated, clearWorkerToken } from '../../utils/workerAuth'
+import { API_URL } from '../../config/api'
 
 const WorkerDashboard = () => {
   const navigate = useNavigate()
@@ -48,7 +49,7 @@ const WorkerDashboard = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
       
-      const response = await fetch('http://localhost:5000/api/workers/profile', {
+      const response = await fetch(`${API_URL}/workers/profile`, {
         method: 'GET',
         credentials: 'include',
         headers: headers
@@ -92,7 +93,7 @@ const WorkerDashboard = () => {
         params.append('search', filters.searchQuery)
       }
 
-      const response = await fetch(`http://localhost:5000/api/clients/jobs/available?${params.toString()}`, {
+      const response = await fetch(`${API_URL}/clients/jobs/available?${params.toString()}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -263,7 +264,7 @@ const WorkerDashboard = () => {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const response = await fetch(`http://localhost:5000/api/workers/apply/${jobId}`, {
+      const response = await fetch(`${API_URL}/workers/apply/${jobId}`, {
         method: 'POST',
         credentials: 'include',
         headers: headers

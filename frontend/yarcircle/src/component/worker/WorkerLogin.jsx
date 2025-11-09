@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isWorkerAuthenticated } from '../../utils/workerAuth'
+import { API_URL } from '../../config/api'
 
 const WorkerLogin = () => {
   const navigate = useNavigate()
@@ -40,7 +41,7 @@ const WorkerLogin = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/workers/login', {
+      const response = await fetch(`${API_URL}/workers/login`, {
         method: 'POST',
         credentials: 'include',
         headers: {

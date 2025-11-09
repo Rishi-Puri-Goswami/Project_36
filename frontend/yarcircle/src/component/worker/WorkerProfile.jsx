@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isWorkerAuthenticated, clearWorkerToken } from '../../utils/workerAuth'
+import { API_URL } from '../../config/api'
 
 const WorkerProfile = () => {
   const navigate = useNavigate()
@@ -49,8 +50,8 @@ const WorkerProfile = () => {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`
       }
-      
-      const response = await fetch('http://localhost:5000/api/workers/profile', {
+
+      const response = await fetch(`${API_URL}/workers/profile`, {
         method: 'GET',
         credentials: 'include',
         headers: headers
@@ -94,7 +95,7 @@ const WorkerProfile = () => {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const response = await fetch('http://localhost:5000/api/workers/my-posts', {
+      const response = await fetch(`${API_URL}/workers/my-posts`, {
         method: 'GET',
         credentials: 'include',
         headers: headers
@@ -137,7 +138,7 @@ const WorkerProfile = () => {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const response = await fetch('http://localhost:5000/api/workers/create-post', {
+      const response = await fetch(`${API_URL}/workers/create-post`, {
         method: 'POST',
         credentials: 'include',
         headers: headers,
@@ -186,7 +187,7 @@ const WorkerProfile = () => {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const response = await fetch(`http://localhost:5000/api/workers/delete-post/${postId}`, {
+      const response = await fetch(`${API_URL}/workers/delete-post/${postId}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: headers
@@ -266,7 +267,7 @@ const WorkerProfile = () => {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const response = await fetch('http://localhost:5000/api/workers/update-profile', {
+      const response = await fetch(`${API_URL}/workers/update-profile`, {
         method: 'PUT',
         credentials: 'include',
         headers: headers,

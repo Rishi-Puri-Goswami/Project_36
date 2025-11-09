@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isWorkerAuthenticated } from '../../utils/workerAuth'
+import { API_URL } from '../../config/api'
 
 const WorkerRegister = () => {
   const navigate = useNavigate()
@@ -62,7 +63,7 @@ const WorkerRegister = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/workers/register', {
+      const response = await fetch(`${API_URL}/workers/register`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -108,7 +109,7 @@ const WorkerRegister = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/workers/verify-otp', {
+      const response = await fetch(`${API_URL}/workers/verify-otp`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -139,7 +140,7 @@ const WorkerRegister = () => {
   const handleResendOtp = async () => {
     setError('')
     try {
-      const response = await fetch('http://localhost:5000/api/workers/resend-otp', {
+      const response = await fetch(`${API_URL}/workers/resend-otp`, {
         method: 'POST',
         credentials: 'include',
         headers: {

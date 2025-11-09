@@ -1,7 +1,9 @@
+import { API_URL } from '../config/api'
+
 // Check if user is authenticated by verifying token with backend
 export const checkAuth = async () => {
   try {
-    const response = await fetch('http://localhost:5000/api/clients/verify-auth', {
+    const response = await fetch(`${API_URL}/clients/verify-auth`, {
       method: 'GET',
       credentials: 'include', // Important for sending cookies
       headers: {
@@ -31,7 +33,7 @@ export const getCookie = (name) => {
 // Logout function
 export const logout = async () => {
   try {
-    await fetch('http://localhost:5000/api/clients/logout', {
+    await fetch(`${API_URL}/clients/logout`, {
       method: 'POST',
       credentials: 'include'
     });

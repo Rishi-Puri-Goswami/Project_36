@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isClientAuthenticated } from '../../utils/clientAuth'
+import { API_URL } from '../../config/api'
 
 const ClintRegister = () => {
   const navigate = useNavigate()
@@ -57,7 +58,7 @@ const ClintRegister = () => {
     setLoading(true)
 
     try {
-      const response = await fetch('http://localhost:5000/api/clients/register', {
+      const response = await fetch(`${API_URL}/clients/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -103,7 +104,7 @@ const ClintRegister = () => {
     setLoading(true)
 
     try {
-      const response = await fetch('http://localhost:5000/api/clients/verify-otp', {
+      const response = await fetch(`${API_URL}/clients/verify-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -138,7 +139,7 @@ const ClintRegister = () => {
     setLoading(true)
 
     try {
-      const response = await fetch('http://localhost:5000/api/clients/resend-otp', {
+      const response = await fetch(`${API_URL}/clients/resend-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

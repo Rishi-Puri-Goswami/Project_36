@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isClientAuthenticated } from '../../utils/clientAuth'
+import { API_URL } from '../../config/api'
 
 const ClintLogin = () => {
   const navigate = useNavigate()
@@ -33,7 +34,7 @@ const ClintLogin = () => {
     setLoading(true)
 
     try {
-      const response = await fetch('http://localhost:5000/api/clients/login', {
+      const response = await fetch(`${API_URL}/clients/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
