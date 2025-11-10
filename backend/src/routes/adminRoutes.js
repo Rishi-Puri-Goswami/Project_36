@@ -7,10 +7,18 @@ import {
   listPendingPosts, 
   approvePost, 
   rejectPost,
-  createplan 
+  createplan,
+  getDashboardOverview,
+  getUserGrowthAnalytics,
+  getRevenueAnalytics
 } from "../controllers/adminController.js";
 
 const adminrouter = express.Router();
+
+// Dashboard routes
+adminrouter.get('/dashboard/overview', getDashboardOverview);
+adminrouter.get('/dashboard/user-growth', getUserGrowthAnalytics);
+adminrouter.get('/dashboard/revenue-analytics', getRevenueAnalytics);
 
 // Worker routes
 adminrouter.route('/workers/pending').get(listPendingWorkers);

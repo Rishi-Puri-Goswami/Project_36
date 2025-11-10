@@ -12,6 +12,9 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger }) => {
   // Use Credit Context for real-time credit updates
   const { subscription, creditsRemaining, consumeCredit, fetchCredits } = useCredit()
   
+  // ✨ Force re-render every minute to update timers
+  const [, forceUpdate] = useState(0)
+  
   // ✨ Track which workers have been unlocked with timestamps (24-hour access)
   // Load from localStorage on mount
   const [unlockedWorkers, setUnlockedWorkers] = useState(() => {
@@ -89,6 +92,9 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger }) => {
         
         return hasChanges ? newMap : prev
       })
+      
+      // Force re-render to update timer displays
+      forceUpdate(prev => prev + 1)
     }
     
     // Check immediately
@@ -103,7 +109,18 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger }) => {
   const fetchWorkers = async () => {
     try {
       const token = localStorage.getItem('clientToken')
-      const response = await fetch(`${API_URL}/clients/workers/available`, {
+      
+      // Get user location if available
+      const savedLocation = localStorage.getItem('clientLocation')
+      let queryParams = ''
+      
+      if (savedLocation) {
+        const { latitude, longitude } = JSON.parse(savedLocation)
+        queryParams = `?latitude=${latitude}&longitude=${longitude}&radius=30`
+        console.log(`📍 Fetching workers within 30km of location: ${latitude}, ${longitude}`)
+      }
+      
+      const response = await fetch(`${API_URL}/clients/workers/available${queryParams}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -115,6 +132,10 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger }) => {
       if (response.ok) {
         const data = await response.json()
         setWorkers(data.workers || [])
+        
+        if (data.searchRadius) {
+          console.log(`✅ Found ${data.total} workers within ${data.searchRadius}`)
+        }
       }
     } catch (error) {
       console.error('Error fetching workers:', error)
@@ -304,6 +325,16 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger }) => {
                     </svg>
                     <span className="text-gray-600">{worker.location || 'Location not specified'}</span>
                   </div>
+                  
+                  {/* Distance Badge (if available) */}
+                  {worker.distance !== undefined && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                      </svg>
+                      <span className="text-green-600 font-semibold">{worker.distance}km away</span>
+                    </div>
+                  )}
                   
                   {worker.experience && (
                     <div className="flex items-center gap-2 text-sm">

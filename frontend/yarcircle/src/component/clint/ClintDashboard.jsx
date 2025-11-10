@@ -7,6 +7,7 @@ import SubscriptionStatus from './SubscriptionStatus'
 import PricingModal from './PricingModal'
 import WorkersList from './WorkersList'
 import CreditDisplay from './CreditDisplay'
+import LocationPermissionModal from '../common/LocationPermissionModal'
 
 const ClintDashboard = () => {
   const navigate = useNavigate()
@@ -14,6 +15,8 @@ const ClintDashboard = () => {
   const [loading, setLoading] = useState(true)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [showPricingModal, setShowPricingModal] = useState(false)
+  const [showLocationModal, setShowLocationModal] = useState(false)
+  const [userLocation, setUserLocation] = useState(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [workers, setWorkers] = useState([])
   const [filteredWorkers, setFilteredWorkers] = useState([])
@@ -34,6 +37,20 @@ const ClintDashboard = () => {
     }
     fetchClientData()
     fetchWorkers()
+    
+    // Check if location permission should be requested
+    const locationSkipped = localStorage.getItem('clientLocationSkipped')
+    const savedLocation = localStorage.getItem('clientLocation')
+    
+    if (!locationSkipped && !savedLocation) {
+      // Show location modal after a short delay
+      setTimeout(() => {
+        setShowLocationModal(true)
+      }, 1500)
+    } else if (savedLocation) {
+      // Load saved location
+      setUserLocation(JSON.parse(savedLocation))
+    }
   }, [navigate])
 
   useEffect(() => {
@@ -564,6 +581,19 @@ const ClintDashboard = () => {
             </div>
           </div>
         </>
+      )}
+
+      {/* Location Permission Modal */}
+      {showLocationModal && (
+        <LocationPermissionModal
+          userType="client"
+          onClose={() => setShowLocationModal(false)}
+          onLocationSet={(location) => {
+            setUserLocation(location)
+            // Refresh workers list with new location
+            setRefreshTrigger(prev => prev + 1)
+          }}
+        />
       )}
     </div>
   )

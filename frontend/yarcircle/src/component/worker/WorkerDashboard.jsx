@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isWorkerAuthenticated, clearWorkerToken } from '../../utils/workerAuth'
 import { API_URL } from '../../config/api'
+import LocationPermissionModal from '../common/LocationPermissionModal'
 
 const WorkerDashboard = () => {
   const navigate = useNavigate()
@@ -14,6 +15,8 @@ const WorkerDashboard = () => {
   const [message, setMessage] = useState({ type: '', text: '' })
   const [workTypeSearch, setWorkTypeSearch] = useState('')
   const [showSearchTips, setShowSearchTips] = useState(false)
+  const [showLocationModal, setShowLocationModal] = useState(false)
+  const [userLocation, setUserLocation] = useState(null)
   const [filters, setFilters] = useState({
     workType: [],
     location: '',
@@ -29,6 +32,20 @@ const WorkerDashboard = () => {
     }
     fetchWorkerData()
     fetchJobs()
+    
+    // Check if location permission should be requested
+    const locationSkipped = localStorage.getItem('workerLocationSkipped')
+    const savedLocation = localStorage.getItem('workerLocation')
+    
+    if (!locationSkipped && !savedLocation) {
+      // Show location modal after a short delay
+      setTimeout(() => {
+        setShowLocationModal(true)
+      }, 1500)
+    } else if (savedLocation) {
+      // Load saved location
+      setUserLocation(JSON.parse(savedLocation))
+    }
   }, [navigate])
 
   useEffect(() => {
@@ -76,6 +93,20 @@ const WorkerDashboard = () => {
     try {
       // Build query parameters
       const params = new URLSearchParams()
+      
+      // Add location parameters if available
+      const savedLocation = localStorage.getItem('workerLocation')
+      if (savedLocation) {
+        try {
+          const location = JSON.parse(savedLocation)
+          params.append('latitude', location.latitude)
+          params.append('longitude', location.longitude)
+          params.append('radius', '30') // 30km radius
+          console.log('📍 Fetching jobs within 30km of worker location:', location)
+        } catch (error) {
+          console.error('Error parsing saved location:', error)
+        }
+      }
       
       if (filters.workType.length > 0) {
         params.append('workType', filters.workType[0]) // For now, use first selected type
@@ -779,6 +810,14 @@ const WorkerDashboard = () => {
                         </svg>
                         <span>{job.location || 'Location not specified'}</span>
                       </div>
+                      {job.distance !== undefined && (
+                        <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                          </svg>
+                          <span className="text-xs font-semibold">{job.distance.toFixed(1)}km away</span>
+                        </div>
+                      )}
                       {job.salaryRange && (
                         <div className="flex items-center gap-1">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -822,6 +861,19 @@ const WorkerDashboard = () => {
           </div>
         </div>
       </main>
+
+      {/* Location Permission Modal */}
+      <LocationPermissionModal 
+        isOpen={showLocationModal}
+        userType="worker"
+        onClose={() => setShowLocationModal(false)}
+        onLocationSet={(location) => {
+          setUserLocation(location)
+          setShowLocationModal(false)
+          // Refresh jobs with new location
+          fetchJobs()
+        }}
+      />
     </div>
   )
 }

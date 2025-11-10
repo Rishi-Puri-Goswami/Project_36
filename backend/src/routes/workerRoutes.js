@@ -13,7 +13,8 @@ import {
   createWorkerPost,
   getWorkerPosts,
   deleteWorkerPost,
-  getAllWorkerPosts
+  getAllWorkerPosts,
+  updateWorkerLocation
 } from "../controllers/workerController.js";
 import { upload } from "../middlewares/uploads/upload.js";
 import { worker_auth } from "../middlewares/worker_middlewares/worker_auth.js";
@@ -27,6 +28,9 @@ workerrouter.post('/resend-otp', resendWorkerOtp);
 workerrouter.post('/login', loginWorker);
 workerrouter.get('/profile', worker_auth, getWorkerProfile);
 workerrouter.put('/update-profile', worker_auth, updateWorkerProfile);
+
+// ============= LOCATION ROUTES =============
+workerrouter.post('/update-location', worker_auth, updateWorkerLocation);
 
 // ============= WORKER POST ROUTES (Must come before /:id route) =============
 workerrouter.post('/create-post', worker_auth, createWorkerPost);

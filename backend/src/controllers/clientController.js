@@ -744,7 +744,7 @@ export const deleteJobPost = async (req, res) => {
 // Only shows jobs from clients with ACTIVE subscriptions
 export const getAllAvailableJobs = async (req, res) => {
   try {
-    const { workType, location, salaryRange, search } = req.query;
+    const { workType, location, salaryRange, search, latitude, longitude, radius = 30 } = req.query;
 
     // Build filter query
     const filter = {
@@ -772,20 +772,53 @@ export const getAllAvailableJobs = async (req, res) => {
     }
 
     // Fetch all matching jobs
-    const jobs = await ClientPost.find(filter)
-      .populate('clientId', 'name companyName email phone')
+    let jobs = await ClientPost.find(filter)
+      .populate('clientId', 'name companyName email phone coordinates')
       .sort({ createdAt: -1 })
       .limit(100);
 
     // Filter out jobs where client doesn't exist
-    const validJobs = jobs.filter(job => job.clientId);
+    let validJobs = jobs.filter(job => job.clientId);
 
-    console.log(`📋 Found ${validJobs.length} valid jobs for workers`);
+    // 📍 Filter by distance if latitude/longitude provided (30km radius)
+    if (latitude && longitude) {
+      const userLat = parseFloat(latitude);
+      const userLon = parseFloat(longitude);
+      const maxDistance = parseFloat(radius); // km
+
+      validJobs = validJobs.filter(job => {
+        const client = job.clientId;
+        
+        if (!client.coordinates || !client.coordinates.latitude || !client.coordinates.longitude) {
+          return false; // Skip jobs from clients without location
+        }
+
+        const distance = calculateDistance(
+          userLat,
+          userLon,
+          client.coordinates.latitude,
+          client.coordinates.longitude
+        );
+
+        // Add distance to job object for frontend display
+        job._doc.distance = Math.round(distance * 10) / 10; // Round to 1 decimal
+
+        return distance <= maxDistance;
+      });
+
+      // Sort by distance (nearest first)
+      validJobs.sort((a, b) => a._doc.distance - b._doc.distance);
+
+      console.log(`📍 Found ${validJobs.length} jobs within ${maxDistance}km radius`);
+    } else {
+      console.log(`📋 Found ${validJobs.length} valid jobs for workers`);
+    }
 
     return res.status(200).json({ 
       message: "Jobs fetched successfully", 
       jobs: validJobs,
-      total: validJobs.length
+      total: validJobs.length,
+      ...(latitude && longitude && { searchRadius: `${radius}km` })
     });
 
   } catch (error) {
@@ -797,7 +830,7 @@ export const getAllAvailableJobs = async (req, res) => {
 // Get all available workers for clients (public route for searching workers)
 export const getAllAvailableWorkers = async (req, res) => {
   try {
-    const { workType, location, search } = req.query;
+    const { workType, location, search, latitude, longitude, radius = 30 } = req.query;
 
     // Build filter query
     const filter = {};
@@ -819,14 +852,46 @@ export const getAllAvailableWorkers = async (req, res) => {
       ];
     }
 
-    const workers = await Worker.find(filter)
+    let workers = await Worker.find(filter)
       .select('-password -otp')
       .sort({ createdAt: -1 })
       .limit(100);
 
+    // 📍 Filter by distance if latitude/longitude provided (30km radius)
+    if (latitude && longitude) {
+      const userLat = parseFloat(latitude);
+      const userLon = parseFloat(longitude);
+      const maxDistance = parseFloat(radius); // km
+
+      workers = workers.filter(worker => {
+        if (!worker.coordinates || !worker.coordinates.latitude || !worker.coordinates.longitude) {
+          return false; // Skip workers without location
+        }
+
+        const distance = calculateDistance(
+          userLat,
+          userLon,
+          worker.coordinates.latitude,
+          worker.coordinates.longitude
+        );
+
+        // Add distance to worker object for frontend display
+        worker._doc.distance = Math.round(distance * 10) / 10; // Round to 1 decimal
+
+        return distance <= maxDistance;
+      });
+
+      // Sort by distance (nearest first)
+      workers.sort((a, b) => a._doc.distance - b._doc.distance);
+
+      console.log(`📍 Found ${workers.length} workers within ${maxDistance}km radius`);
+    }
+
     return res.status(200).json({ 
       message: "Workers fetched successfully", 
-      workers 
+      workers,
+      total: workers.length,
+      ...(latitude && longitude && { searchRadius: `${radius}km` })
     });
 
   } catch (error) {
@@ -834,6 +899,27 @@ export const getAllAvailableWorkers = async (req, res) => {
     return res.status(500).json({ error: "Server error in fetching workers" });
   }
 };
+
+// 📍 Helper function: Calculate distance between two coordinates (Haversine formula)
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
+  
+  return distance; // Returns distance in kilometers
+}
+
+function toRad(degrees) {
+  return degrees * (Math.PI / 180);
+}
 
 // Get client subscription status
 export const getSubscriptionStatus = async (req, res) => {
@@ -1172,6 +1258,63 @@ export const viewWorkerProfile = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
+
+// 📍 Update Client Location (Latitude/Longitude)
+export const updateClientLocation = async (req, res) => {
+  try {
+    const clientId = req.clint._id;
+    const { latitude, longitude } = req.body;
+
+    // Validation
+    if (!latitude || !longitude) {
+      return res.status(400).json({ 
+        error: "Latitude and longitude are required" 
+      });
+    }
+
+    // Validate coordinates range
+    if (latitude < -90 || latitude > 90) {
+      return res.status(400).json({ 
+        error: "Latitude must be between -90 and 90" 
+      });
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      return res.status(400).json({ 
+        error: "Longitude must be between -180 and 180" 
+      });
+    }
+
+    // Update client location
+    const client = await Client.findByIdAndUpdate(
+      clientId,
+      {
+        coordinates: {
+          latitude: parseFloat(latitude),
+          longitude: parseFloat(longitude),
+          updatedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    console.log(`📍 Client ${client.name} location updated: ${latitude}, ${longitude}`);
+
+    return res.status(200).json({
+      message: "Location updated successfully",
+      coordinates: client.coordinates
+    });
+
+  } catch (error) {
+    console.error("Error updating client location:", error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+
+
+
 
 
 

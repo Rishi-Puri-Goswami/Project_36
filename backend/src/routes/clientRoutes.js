@@ -26,7 +26,8 @@ import {
   createSubscriptionOrder,
   verifySubscriptionPayment,
   checkSubscriptionAccess,
-  viewWorkerProfile
+  viewWorkerProfile,
+  updateClientLocation
 } from "../controllers/clientController.js";
 import { clint_auth } from "../middlewares/clint_middlewares/clint_auth.js";
 
@@ -40,6 +41,9 @@ clientRouter.post('/login', loginClint);
 clientRouter.get('/verify-auth', verifyAuth);
 clientRouter.get('/profile', getProfile);
 clientRouter.post('/logout', logoutClint);
+
+// Location routes (auth required)
+clientRouter.post('/update-location', clint_auth, updateClientLocation);
 
 // Worker Search routes (public)
 clientRouter.get('/workers/available', getAllAvailableWorkers); // Public route for clients to search workers

@@ -521,5 +521,60 @@ export const getAllWorkerPosts = async (req, res) => {
   }
 };
 
+// 📍 Update Worker Location (Latitude/Longitude)
+export const updateWorkerLocation = async (req, res) => {
+  try {
+    const workerId = req.worker._id;
+    const { latitude, longitude } = req.body;
+
+    // Validation
+    if (!latitude || !longitude) {
+      return res.status(400).json({ 
+        error: "Latitude and longitude are required" 
+      });
+    }
+
+    // Validate coordinates range
+    if (latitude < -90 || latitude > 90) {
+      return res.status(400).json({ 
+        error: "Latitude must be between -90 and 90" 
+      });
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      return res.status(400).json({ 
+        error: "Longitude must be between -180 and 180" 
+      });
+    }
+
+    // Update worker location
+    const worker = await Worker.findByIdAndUpdate(
+      workerId,
+      {
+        coordinates: {
+          latitude: parseFloat(latitude),
+          longitude: parseFloat(longitude),
+          updatedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    console.log(`📍 Worker ${worker.name} location updated: ${latitude}, ${longitude}`);
+
+    return res.status(200).json({
+      message: "Location updated successfully",
+      coordinates: worker.coordinates
+    });
+
+  } catch (error) {
+    console.error("Error updating worker location:", error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+
+
 
 

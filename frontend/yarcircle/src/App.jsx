@@ -12,6 +12,7 @@ import MyJobs from './component/clint/MyJobs'
 import JobDetails from './component/clint/JobDetails'
 import EditJob from './component/clint/EditJob'
 import WorkerProfileView from './component/clint/WorkerProfileView'
+import PricingPage from './component/clint/PricingPage'
 import WorkerPage from './component/worker/WorkerPage'
 import WorkerLogin from './component/worker/WorkerLogin'
 import WorkerRegister from './component/worker/WorkerRegister'
@@ -33,6 +34,7 @@ const App = () => {
         <Route path="/client" element={<ClintPage />} />
         <Route path="/client/login" element={<ClintLogin />} />
         <Route path="/client/register" element={<ClintRegister />} />
+        <Route path="/client/pricing" element={<PricingPage />} />
         <Route path="/client/dashboard" element={<ClintDashboard />} />
         <Route path="/client/profile" element={<ClintProfile />} />
         <Route path="/client/post-job" element={<PostJob />} />
