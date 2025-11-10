@@ -1,5 +1,6 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { CreditProvider } from './context/CreditContext'
 import LandingPage from './component/landingPage/LandingPage'
 import ClintPage from './component/clint/ClintPage'
 import ClintLogin from './component/clint/ClintLogin'
@@ -25,7 +26,8 @@ import Terms from './component/policies/Terms'
 const App = () => {
   return (
     <Router>
-      <Routes>
+      <CreditProvider>
+        <Routes>
 
         <Route path="/" element={<LandingPage />} />
         <Route path="/client" element={<ClintPage />} />
@@ -50,6 +52,7 @@ const App = () => {
         <Route path="/terms/terms" element={<Terms />} />
 
       </Routes>
+      </CreditProvider>
     </Router>
   )
 }

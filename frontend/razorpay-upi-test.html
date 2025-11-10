@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Razorpay UPI Test</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #3B82F6;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #2563EB;
+        }
+        .info {
+            background: #E0F2FE;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3B82F6;
+        }
+        .error {
+            background: #FEE2E2;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            border-left: 4px solid #EF4444;
+        }
+        .success {
+            background: #D1FAE5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            border-left: 4px solid #10B981;
+        }
+        pre {
+            background: #1F2937;
+            color: #F9FAFB;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        h1 { color: #1F2937; }
+        h2 { color: #3B82F6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Razorpay UPI Test Page</h1>
+        
+        <div class="info">
+            <strong>📋 Test Instructions:</strong>
+            <ol>
+                <li>Click "Test UPI Payment" button</li>
+                <li>Check if UPI option appears in Razorpay checkout</li>
+                <li>If UPI shows: Use test UPI ID <code>success@razorpay</code></li>
+                <li>If UPI doesn't show: Check Razorpay Dashboard settings</li>
+            </ol>
+        </div>
+
+        <h2>Test 1: With UPI Explicitly Enabled</h2>
+        <button onclick="testWithUPI()">🔵 Test UPI Payment (₹100)</button>
+
+        <h2>Test 2: Without UPI Config (Default)</h2>
+        <button onclick="testDefault()">⚪ Test Default Payment (₹100)</button>
+
+        <h2>Test 3: UPI Only</h2>
+        <button onclick="testUPIOnly()">🟢 Test UPI Only (₹100)</button>
+
+        <div id="result"></div>
+
+        <hr style="margin: 30px 0;">
+
+        <h2>📝 Expected Results:</h2>
+        <div class="info">
+            <p><strong>If UPI is enabled in your Razorpay account:</strong></p>
+            <ul>
+                <li>✅ You should see "UPI" as a payment option</li>
+                <li>✅ QR code will be displayed</li>
+                <li>✅ Options to enter UPI ID or select UPI apps</li>
+            </ul>
+            
+            <p><strong>If UPI is NOT enabled:</strong></p>
+            <ul>
+                <li>❌ Only Cards, Net Banking, Wallets, Pay Later will show</li>
+                <li>❌ No QR code option</li>
+                <li>❌ Need to enable UPI in Razorpay Dashboard</li>
+            </ul>
+        </div>
+
+        <h2>🔧 How to Enable UPI in Razorpay Dashboard:</h2>
+        <div class="info">
+            <ol>
+                <li>Login to <a href="https://dashboard.razorpay.com" target="_blank">Razorpay Dashboard</a></li>
+                <li>Go to <strong>Settings</strong> → <strong>Payment Methods</strong></li>
+                <li>Find <strong>UPI</strong> section</li>
+                <li>Toggle it <strong>ON</strong></li>
+                <li>Save changes</li>
+                <li>Wait 2-3 minutes for changes to take effect</li>
+            </ol>
+        </div>
+
+        <h2>🧪 Test UPI IDs (Razorpay Test Mode):</h2>
+        <pre>
+✅ Success: success@razorpay
+❌ Failure: failure@razorpay
+
+Or use any format like:
+- yourname@paytm
+- 9876543210@ybl
+- test@oksbi
+        </pre>
+    </div>
+
+    <script>
+        const RAZORPAY_KEY = 'rzp_test_RdnvWAChajg0bW';
+
+        function showResult(message, type = 'info') {
+            const result = document.getElementById('result');
+            result.className = type;
+            result.innerHTML = message;
+        }
+
+        // Test 1: With UPI explicitly enabled
+        function testWithUPI() {
+            console.log('Testing with UPI enabled...');
+            
+            const options = {
+                key: RAZORPAY_KEY,
+                amount: 10000, // ₹100 in paise
+                currency: 'INR',
+                name: 'YarCircle Test',
+                description: 'Test UPI Payment',
+                
+                // Explicitly enable UPI
+                method: {
+                    upi: true,
+                    card: true,
+                    netbanking: true,
+                    wallet: true,
+                    paylater: true
+                },
+                
+                handler: function(response) {
+                    console.log('Payment Success:', response);
+                    showResult(`
+                        <strong>✅ Payment Initiated Successfully!</strong><br>
+                        Payment ID: ${response.razorpay_payment_id}<br>
+                        <br>
+                        <strong>Did you see UPI option?</strong> If yes, UPI is enabled!
+                    `, 'success');
+                },
+                
+                modal: {
+                    ondismiss: function() {
+                        showResult('❌ Payment cancelled', 'error');
+                    }
+                },
+                
+                theme: {
+                    color: '#3B82F6'
+                }
+            };
+
+            console.log('Razorpay Options:', options);
+            
+            if (typeof Razorpay === 'undefined') {
+                showResult('❌ Razorpay script not loaded!', 'error');
+                return;
+            }
+
+            const rzp = new Razorpay(options);
+            rzp.open();
+        }
+
+        // Test 2: Default (no method config)
+        function testDefault() {
+            console.log('Testing with default settings...');
+            
+            const options = {
+                key: RAZORPAY_KEY,
+                amount: 10000,
+                currency: 'INR',
+                name: 'YarCircle Test',
+                description: 'Test Default Payment',
+                
+                handler: function(response) {
+                    console.log('Payment Success:', response);
+                    showResult(`
+                        <strong>✅ Payment Initiated!</strong><br>
+                        Payment ID: ${response.razorpay_payment_id}<br>
+                        <br>
+                        Check what payment methods were shown.
+                    `, 'success');
+                },
+                
+                modal: {
+                    ondismiss: function() {
+                        showResult('❌ Payment cancelled', 'error');
+                    }
+                }
+            };
+
+            const rzp = new Razorpay(options);
+            rzp.open();
+        }
+
+        // Test 3: UPI Only
+        function testUPIOnly() {
+            console.log('Testing UPI only...');
+            
+            const options = {
+                key: RAZORPAY_KEY,
+                amount: 10000,
+                currency: 'INR',
+                name: 'YarCircle Test',
+                description: 'Test UPI Only',
+                
+                // Only enable UPI
+                method: {
+                    upi: true,
+                    card: false,
+                    netbanking: false,
+                    wallet: false,
+                    paylater: false
+                },
+                
+                handler: function(response) {
+                    console.log('Payment Success:', response);
+                    showResult(`
+                        <strong>✅ Payment Initiated!</strong><br>
+                        Payment ID: ${response.razorpay_payment_id}<br>
+                        <br>
+                        If UPI was the only option, then UPI is working!
+                    `, 'success');
+                },
+                
+                modal: {
+                    ondismiss: function() {
+                        showResult('❌ Payment cancelled', 'error');
+                    }
+                }
+            };
+
+            const rzp = new Razorpay(options);
+            rzp.open();
+        }
+
+        // Check if Razorpay is loaded on page load
+        window.addEventListener('load', function() {
+            if (typeof Razorpay !== 'undefined') {
+                console.log('✅ Razorpay SDK loaded successfully');
+            } else {
+                showResult('❌ ERROR: Razorpay SDK not loaded!', 'error');
+            }
+        });
+    </script>
+</body>
+</html>

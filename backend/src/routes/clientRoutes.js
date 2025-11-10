@@ -20,7 +20,13 @@ import {
   updateJobPost,
   deleteJobPost,
   getAllAvailableJobs,
-  getAllAvailableWorkers
+  getAllAvailableWorkers,
+  getSubscriptionStatus,
+  getAllPlans,
+  createSubscriptionOrder,
+  verifySubscriptionPayment,
+  checkSubscriptionAccess,
+  viewWorkerProfile
 } from "../controllers/clientController.js";
 import { clint_auth } from "../middlewares/clint_middlewares/clint_auth.js";
 
@@ -56,6 +62,16 @@ clientRouter.post('/pay/renewPost', renewPost);
 // Payment routes
 clientRouter.post('/payment/:planId', payment);
 clientRouter.post('/payment-verification', paymentVerification);
+
+// Subscription routes (auth required)
+clientRouter.get('/subscription/status', clint_auth, getSubscriptionStatus);
+clientRouter.get('/subscription/check-access', clint_auth, checkSubscriptionAccess);
+clientRouter.get('/plans', getAllPlans); // Public route to view plans
+clientRouter.post('/subscription/create-order', clint_auth, createSubscriptionOrder);
+clientRouter.post('/subscription/verify-payment', clint_auth, verifySubscriptionPayment);
+
+// Worker Profile View (auth required - consumes credits)
+clientRouter.get('/worker/view/:workerId', clint_auth, viewWorkerProfile);
 
 // Application routes
 clientRouter.get('/applications/:postId', workerApplication);

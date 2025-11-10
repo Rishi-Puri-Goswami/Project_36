@@ -112,20 +112,27 @@ export const verifyClintOtp = async (req , res )=>{
             return res.status(400).json({message : "Invalid OTP" , status : 400});
         }
 
-        const freePlan = await Plan.findOne({ planName: "Free" });
+        const freePlan = await Plan.findOne({ planName: "Free Trial" });
 
         if (!freePlan) {
-            return res.status(500).json({ message: "Free plan not found, contact support", status: 500 });
+            return res.status(500).json({ message: "Free Trial plan not found, contact support", status: 500 });
         }
 
+        // Create subscription with 10 free profile views
         const createSubscription = new Subscription({
             userId: clint._id,
             planId : freePlan._id,
             userType: "Client",
-            viewsAllowed: freePlan.viewsAllowed,
+            planName: freePlan.planName,
+            viewsAllowed: freePlan.viewsAllowed, // 10 free views
             viewsUsed: 0,
             startDate: new Date(),
-            status: "active"
+            expiryDate: null, // Credit-based, no expiry
+            status: "active",
+            price: {
+                amount: 0,
+                currency: "INR"
+            }
         });
 
         await createSubscription.save();
@@ -734,6 +741,7 @@ export const deleteJobPost = async (req, res) => {
 };
 
 // Get all available jobs for workers (public route)
+// Only shows jobs from clients with ACTIVE subscriptions
 export const getAllAvailableJobs = async (req, res) => {
   try {
     const { workType, location, salaryRange, search } = req.query;
@@ -763,14 +771,21 @@ export const getAllAvailableJobs = async (req, res) => {
       ];
     }
 
+    // Fetch all matching jobs
     const jobs = await ClientPost.find(filter)
       .populate('clientId', 'name companyName email phone')
       .sort({ createdAt: -1 })
       .limit(100);
 
+    // Filter out jobs where client doesn't exist
+    const validJobs = jobs.filter(job => job.clientId);
+
+    console.log(`📋 Found ${validJobs.length} valid jobs for workers`);
+
     return res.status(200).json({ 
       message: "Jobs fetched successfully", 
-      jobs 
+      jobs: validJobs,
+      total: validJobs.length
     });
 
   } catch (error) {
@@ -817,6 +832,344 @@ export const getAllAvailableWorkers = async (req, res) => {
   } catch (error) {
     console.error("Error in getAllAvailableWorkers controller:", error);
     return res.status(500).json({ error: "Server error in fetching workers" });
+  }
+};
+
+// Get client subscription status
+export const getSubscriptionStatus = async (req, res) => {
+  try {
+    const clientId = req.clint._id;
+
+    const subscription = await Subscription.findOne({ 
+      userId: clientId, 
+      userType: "Client" 
+    }).populate('planId');
+
+    if (!subscription) {
+      return res.status(404).json({ 
+        message: "No subscription found", 
+        status: 404 
+      });
+    }
+
+    // Calculate remaining credits
+    const creditsRemaining = subscription.viewsAllowed - subscription.viewsUsed;
+    const hasCredits = creditsRemaining > 0;
+
+    return res.status(200).json({ 
+      message: "Subscription status fetched successfully", 
+      subscription: {
+        planName: subscription.planName,
+        status: subscription.status,
+        viewsAllowed: subscription.viewsAllowed,
+        viewsUsed: subscription.viewsUsed,
+        creditsRemaining: creditsRemaining,
+        hasCredits: hasCredits,
+        price: subscription.price,
+        viewedWorkers: subscription.viewedWorkers || []
+      }
+    });
+
+  } catch (error) {
+    console.error("Error in getSubscriptionStatus:", error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+// Get all available plans
+export const getAllPlans = async (req, res) => {
+  try {
+    const plans = await Plan.find({}).sort({ 'price.amount': 1 });
+
+    return res.status(200).json({ 
+      message: "Plans fetched successfully", 
+      plans 
+    });
+
+  } catch (error) {
+    console.error("Error in getAllPlans:", error);
+    return res.status(500).json({ error: "Server error in fetching plans" });
+  }
+};
+
+// Create Razorpay order for subscription
+export const createSubscriptionOrder = async (req, res) => {
+  try {
+    const { planId } = req.body;
+    const clientId = req.clint._id;
+
+    if (!planId) {
+      return res.status(400).json({ error: "Plan ID is required" });
+    }
+
+    const plan = await Plan.findById(planId);
+    if (!plan) {
+      return res.status(404).json({ error: "Plan not found" });
+    }
+
+    if (plan.price.amount === 0) {
+      return res.status(400).json({ error: "Cannot purchase free trial plan" });
+    }
+
+    // Create Razorpay order
+    const order = await razorpay.orders.create({
+      amount: plan.price.amount * 100, // Convert to paise
+      currency: plan.price.currency,
+      receipt: `receipt_${Date.now()}`,
+      notes: {
+        clientId: clientId.toString(),
+        planId: planId.toString(),
+        planName: plan.planName
+      }
+    });
+
+    // Create payment record
+    const payment = new Payment({
+      planId: plan._id,
+      userId: clientId,
+      razorpayOrderId: order.id,
+      paymentId: "",
+      price: { 
+        amount: plan.price.amount, 
+        currency: plan.price.currency 
+      },
+      status: "PENDING"
+    });
+
+    await payment.save();
+
+    return res.status(200).json({ 
+      message: "Order created successfully",
+      success: true, 
+      order,
+      planDetails: {
+        name: plan.planName,
+        duration: plan.duration,
+        amount: plan.price.amount
+      }
+    });
+
+  } catch (error) {
+    console.error("Error in createSubscriptionOrder:", error);
+    return res.status(500).json({ error: "Server error in creating order" });
+  }
+};
+
+// Verify subscription payment and activate
+export const verifySubscriptionPayment = async (req, res) => {
+  try {
+    const { razorpayOrderId, paymentId, signature } = req.body;
+    const clientId = req.clint._id;
+
+    console.log('=== PAYMENT VERIFICATION ===');
+    console.log('Order ID:', razorpayOrderId);
+    console.log('Payment ID:', paymentId);
+    console.log('Client ID:', clientId);
+
+    if (!razorpayOrderId || !paymentId || !signature) {
+      console.error('Missing payment fields:', { razorpayOrderId, paymentId, signature });
+      return res.status(400).json({ error: "All payment fields are required" });
+    }
+
+    // Verify payment signature
+    const isValid = validatePaymentVerification(
+      {
+        order_id: razorpayOrderId,
+        payment_id: paymentId
+      },
+      signature,
+      process.env.RAZORPAY_KEY_SECRET
+    );
+
+    console.log('Signature valid?', isValid);
+
+    if (!isValid) {
+      console.error('Invalid payment signature');
+      return res.status(400).json({ error: "Invalid payment signature" });
+    }
+
+    // Find payment record
+    const payment = await Payment.findOne({ razorpayOrderId });
+    if (!payment) {
+      return res.status(404).json({ error: "Payment record not found" });
+    }
+
+    // Update payment record
+    payment.paymentId = paymentId;
+    payment.signature = signature;
+    payment.status = "SUCCESS";
+    await payment.save();
+
+    // Get plan details
+    const plan = await Plan.findById(payment.planId);
+    if (!plan) {
+      return res.status(404).json({ error: "Plan not found" });
+    }
+
+    // Find or create subscription
+    let subscription = await Subscription.findOne({ 
+      userId: clientId, 
+      userType: "Client" 
+    });
+
+    if (!subscription) {
+      return res.status(404).json({ error: "Subscription not found" });
+    }
+
+    // Add credits to subscription (cumulative)
+    subscription.planId = plan._id;
+    subscription.planName = plan.planName;
+    subscription.price = { 
+      amount: plan.price.amount, 
+      currency: plan.price.currency 
+    };
+    // ADD new credits to existing credits
+    subscription.viewsAllowed += plan.viewsAllowed;
+    subscription.startDate = new Date();
+    subscription.status = "active";
+    await subscription.save();
+
+    const newCredits = plan.viewsAllowed;
+    const totalCredits = subscription.viewsAllowed - subscription.viewsUsed;
+
+    return res.status(200).json({ 
+      message: "Payment verified and credits added successfully",
+      subscription: {
+        planName: subscription.planName,
+        creditsAdded: newCredits,
+        totalCredits: totalCredits,
+        viewsAllowed: subscription.viewsAllowed,
+        viewsUsed: subscription.viewsUsed,
+        status: subscription.status
+      }
+    });
+
+  } catch (error) {
+    console.error("Error in verifySubscriptionPayment:", error);
+    return res.status(500).json({ error: "Server error in payment verification" });
+  }
+};
+
+// Check if client has credits to view worker profiles
+export const checkSubscriptionAccess = async (req, res) => {
+  try {
+    const clientId = req.clint._id;
+
+    const subscription = await Subscription.findOne({ 
+      userId: clientId, 
+      userType: "Client" 
+    });
+
+    if (!subscription) {
+      return res.status(403).json({ 
+        hasAccess: false,
+        creditsRemaining: 0,
+        message: "No subscription found" 
+      });
+    }
+
+    // Calculate remaining credits
+    const creditsRemaining = subscription.viewsAllowed - subscription.viewsUsed;
+    const hasCredits = creditsRemaining > 0;
+
+    if (!hasCredits) {
+      return res.status(200).json({ 
+        hasAccess: false,
+        creditsRemaining: 0,
+        viewsUsed: subscription.viewsUsed,
+        viewsAllowed: subscription.viewsAllowed,
+        message: "You have used all your profile view credits. Please purchase more to continue."
+      });
+    }
+
+    // Has credits available
+    return res.status(200).json({ 
+      hasAccess: true,
+      creditsRemaining: creditsRemaining,
+      viewsUsed: subscription.viewsUsed,
+      viewsAllowed: subscription.viewsAllowed,
+      message: "Credits available",
+      subscription: {
+        planName: subscription.planName,
+        creditsRemaining: creditsRemaining
+      }
+    });
+
+  } catch (error) {
+    console.error("Error in checkSubscriptionAccess:", error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+// View worker profile details (consumes 1 credit)
+export const viewWorkerProfile = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    const clientId = req.clint._id;
+
+    // Check subscription
+    const subscription = await Subscription.findOne({ 
+      userId: clientId, 
+      userType: "Client" 
+    });
+
+    if (!subscription) {
+      return res.status(403).json({ 
+        error: "No subscription found. Please purchase a plan to view worker profiles." 
+      });
+    }
+
+    // Get worker details first
+    const worker = await Worker.findById(workerId).select('-password -otp');
+    
+    if (!worker) {
+      return res.status(404).json({ error: "Worker not found" });
+    }
+
+    // Check if this worker was already viewed (remains unlocked)
+    const alreadyViewed = subscription.viewedWorkers.some(
+      id => id.toString() === workerId.toString()
+    );
+
+    if (alreadyViewed) {
+      // Worker already viewed - return profile without consuming credit
+      return res.status(200).json({ 
+        message: "Worker profile fetched successfully (already viewed)",
+        worker: worker,
+        creditsRemaining: subscription.viewsAllowed - subscription.viewsUsed,
+        creditsUsed: 0,
+        alreadyViewed: true
+      });
+    }
+
+    // New worker view - check if credits available
+    const creditsRemaining = subscription.viewsAllowed - subscription.viewsUsed;
+    
+    if (creditsRemaining <= 0) {
+      return res.status(403).json({ 
+        error: "No credits remaining. Please purchase more to view worker profiles.",
+        creditsRemaining: 0,
+        viewsUsed: subscription.viewsUsed,
+        viewsAllowed: subscription.viewsAllowed
+      });
+    }
+
+    // Consume 1 credit and add to viewed workers
+    subscription.viewsUsed += 1;
+    subscription.viewedWorkers.push(workerId);
+    await subscription.save();
+
+    return res.status(200).json({ 
+      message: "Worker profile fetched successfully",
+      worker: worker,
+      creditsRemaining: subscription.viewsAllowed - subscription.viewsUsed,
+      creditsUsed: 1,
+      alreadyViewed: false
+    });
+
+  } catch (error) {
+    console.error("Error in viewWorkerProfile:", error);
+    return res.status(500).json({ error: "Server error" });
   }
 };
 

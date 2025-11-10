@@ -5,18 +5,16 @@ const SubscriptionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId,  refPath: 'userType' },
   planId: { type: mongoose.Schema.Types.ObjectId, ref: "Plan", required: true },
   userType: { type: String, enum: ["Client", "Worker"], required: true },
-  planName: { type: String, enum: ["Free", "Starter", "Pro", "Enterprise"], default: "Free" },
+  planName: { type: String, default: "Free Trial" },
   price : { 
-
     amount : { type : Number , required : true , default : 0 },
     currency : { type : String , default : "INR" }
-
   },
-  viewsAllowed: { type: Number, default: 10 }, 
-  viewsUsed: { type: Number, default: 0 },
+  viewsAllowed: { type: Number, default: 10 }, // Total credits available
+  viewsUsed: { type: Number, default: 0 }, // Credits consumed
+  viewedWorkers: [{ type: mongoose.Schema.Types.ObjectId, ref: "Worker" }], // Track viewed worker IDs
   startDate: { type: Date, default: Date.now },
-  // expiryDate: Date,
-  // paymentRef: String,
+  expiryDate: { type: Date }, // Only for time-based plans
   status: { type: String, enum: ["active", "expired", "cancelled"], default: "active" },
 }, { timestamps: true });
 
