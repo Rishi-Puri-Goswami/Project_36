@@ -14,11 +14,12 @@ dotenv.config();
 const app = express();
 
 app.use(cors({
-    origin: ['http://localhost:5173' , 'https://project-36-al0hmrw85-rishi-puri-goswamis-projects.vercel.app'],
+    origin: ['http://localhost:5173' , 'https://project-36-al0hmrw85-rishi-puri-goswamis-projects.vercel.app' , 'https://project-36-lyart.vercel.app'],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
+
 app.use(express.json());
 app.use(cookieParser());
 
