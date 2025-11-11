@@ -112,8 +112,14 @@ export const verifyWorkerOtp = async (req, res) => {
       return res.status(400).json({ message: "Invalid OTP", status: 400 });
     }
 
-    // Find free plan
-    const freePlan = await Plan.findOne({ planName: "Free" });
+    // Find free plan (Free Trial with 0 price)
+    const freePlan = await Plan.findOne({ 
+      $or: [
+        { planName: "Free" },
+        { planName: "Free Trial" },
+        { "price.amount": 0 }
+      ]
+    });
 
     if (!freePlan) {
       return res.status(500).json({ message: "Free plan not found, contact support", status: 500 });
