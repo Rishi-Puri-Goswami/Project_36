@@ -28,7 +28,7 @@ const LandingPage = () => {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-gray-800 mb-4">
-            Welcome to YarCircle
+            Welcome to YaarCircle
           </h1>
           <p className="text-xl text-gray-600">
             Choose your role to get started
