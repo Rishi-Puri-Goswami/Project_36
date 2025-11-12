@@ -67,7 +67,7 @@ const PricingModal = ({ isOpen, onClose, onPurchaseSuccess }) => {
 
       // Step 2: Initialize Razorpay with UPI/QR Code support
       const options = {
-        key: 'rzp_test_RdnvWAChajg0bW', // Razorpay test key
+        key: 'rzp_live_ReY2CoiYp3SjRo', // Razorpay LIVE key (matches backend)
         amount: orderData.order.amount,
         currency: orderData.order.currency,
         name: 'YarCircle',
