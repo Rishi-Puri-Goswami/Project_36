@@ -13,6 +13,14 @@ const SubscriptionSchema = new mongoose.Schema({
   viewsAllowed: { type: Number, default: 10 }, // Total credits available
   viewsUsed: { type: Number, default: 0 }, // Credits consumed
   viewedWorkers: [{ type: mongoose.Schema.Types.ObjectId, ref: "Worker" }], // Track viewed worker IDs
+  
+  // 🔓 Track unlocked worker profiles with 24-hour access
+  unlockedWorkers: [{
+    workerId: { type: mongoose.Schema.Types.ObjectId, ref: "Worker" },
+    unlockedAt: { type: Date, default: Date.now },
+    expiresAt: { type: Date } // 24 hours from unlockedAt
+  }],
+  
   startDate: { type: Date, default: Date.now },
   expiryDate: { type: Date }, // Only for time-based plans
   status: { type: String, enum: ["active", "expired", "cancelled"], default: "active" },

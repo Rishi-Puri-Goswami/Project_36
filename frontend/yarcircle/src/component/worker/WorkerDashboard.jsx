@@ -17,6 +17,8 @@ const WorkerDashboard = () => {
   const [showSearchTips, setShowSearchTips] = useState(false)
   const [showLocationModal, setShowLocationModal] = useState(false)
   const [userLocation, setUserLocation] = useState(null)
+  const [selectedJob, setSelectedJob] = useState(null)
+  const [showJobDetailsModal, setShowJobDetailsModal] = useState(false)
   const [filters, setFilters] = useState({
     workType: [],
     location: '',
@@ -328,6 +330,16 @@ const WorkerDashboard = () => {
     } finally {
       setApplyingJobId(null)
     }
+  }
+  
+  const handleViewJobDetails = (job) => {
+    setSelectedJob(job)
+    setShowJobDetailsModal(true)
+  }
+  
+  const closeJobDetailsModal = () => {
+    setShowJobDetailsModal(false)
+    setSelectedJob(null)
   }
 
   const handleFilterChange = (filterType, value) => {
@@ -832,27 +844,35 @@ const WorkerDashboard = () => {
                       {job.description || 'No description provided'}
                     </p>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-gray-500">
                         Posted {new Date(job.createdAt).toLocaleDateString()}
                       </span>
-                      <button 
-                        onClick={() => handleApplyToJob(job._id)}
-                        disabled={applyingJobId === job._id || job.workerApplications?.includes(worker?._id)}
-                        className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                          job.workerApplications?.includes(worker?._id)
-                            ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleViewJobDetails(job)}
+                          className="px-4 py-2 text-sm font-semibold text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                        >
+                          View More
+                        </button>
+                        <button 
+                          onClick={() => handleApplyToJob(job._id)}
+                          disabled={applyingJobId === job._id || job.workerApplications?.includes(worker?._id)}
+                          className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                            job.workerApplications?.includes(worker?._id)
+                              ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                              : applyingJobId === job._id
+                              ? 'bg-green-400 text-white cursor-wait'
+                              : 'bg-green-600 text-white hover:bg-green-700'
+                          }`}
+                        >
+                          {job.workerApplications?.includes(worker?._id)
+                            ? 'Applied ✓'
                             : applyingJobId === job._id
-                            ? 'bg-green-400 text-white cursor-wait'
-                            : 'bg-green-600 text-white hover:bg-green-700'
-                        }`}
-                      >
-                        {job.workerApplications?.includes(worker?._id)
-                          ? 'Applied ✓'
-                          : applyingJobId === job._id
-                          ? 'Applying...'
-                          : 'Apply Now'}
-                      </button>
+                            ? 'Applying...'
+                            : 'Apply Now'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -861,6 +881,167 @@ const WorkerDashboard = () => {
           </div>
         </div>
       </main>
+
+      {/* Job Details Modal */}
+      {showJobDetailsModal && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-8">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-t-2xl">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold mb-2">{selectedJob.workType}</h2>
+                  <p className="text-green-100">
+                    Posted by: {selectedJob.clientId?.companyName || selectedJob.clientId?.name || 'Company'}
+                  </p>
+                </div>
+                <button
+                  onClick={closeJobDetailsModal}
+                  className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              {/* Job Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span className="text-sm text-gray-600 font-medium">Positions</span>
+                  </div>
+                  <p className="text-2xl font-bold text-green-700">{selectedJob.numberOfWorkers}</p>
+                </div>
+                
+                {selectedJob.salaryRange && (
+                  <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg p-4 border border-yellow-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-sm text-gray-600 font-medium">Salary</span>
+                    </div>
+                    <p className="text-lg font-bold text-yellow-700">{selectedJob.salaryRange}</p>
+                  </div>
+                )}
+                
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-sm text-gray-600 font-medium">Posted</span>
+                  </div>
+                  <p className="text-sm font-semibold text-blue-700">
+                    {new Date(selectedJob.createdAt).toLocaleDateString('en-US', { 
+                      year: 'numeric', 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Location */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Location
+                </h3>
+                <p className="text-gray-700 bg-gray-50 rounded-lg p-3">
+                  {selectedJob.location || 'Location not specified'}
+                  {selectedJob.distance !== undefined && (
+                    <span className="ml-3 text-green-600 font-semibold">
+                      • {selectedJob.distance.toFixed(1)}km away
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {/* Description */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Job Description
+                </h3>
+                <div className="text-gray-700 bg-gray-50 rounded-lg p-4 whitespace-pre-wrap">
+                  {selectedJob.description || 'No description provided'}
+                </div>
+              </div>
+
+              {/* Client Contact Info */}
+              {selectedJob.clientId && (
+                <div className="mb-6 border-t pt-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Client Information
+                  </h3>
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 space-y-2 border border-green-200">
+                    {selectedJob.clientId.companyName && (
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        <span className="font-medium text-gray-700">Company:</span>
+                        <span className="text-gray-800">{selectedJob.clientId.companyName}</span>
+                      </div>
+                    )}
+                    {selectedJob.clientId.name && (
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span className="font-medium text-gray-700">Contact:</span>
+                        <span className="text-gray-800">{selectedJob.clientId.name}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t">
+                <button
+                  onClick={closeJobDetailsModal}
+                  className="flex-1 px-6 py-3 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    handleApplyToJob(selectedJob._id)
+                    closeJobDetailsModal()
+                  }}
+                  disabled={selectedJob.workerApplications?.includes(worker?._id)}
+                  className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-colors ${
+                    selectedJob.workerApplications?.includes(worker?._id)
+                      ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
+                >
+                  {selectedJob.workerApplications?.includes(worker?._id)
+                    ? 'Already Applied ✓'
+                    : 'Apply for This Job'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Location Permission Modal */}
       <LocationPermissionModal 

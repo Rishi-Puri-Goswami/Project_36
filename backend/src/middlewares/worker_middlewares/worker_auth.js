@@ -22,6 +22,15 @@ export const worker_auth = async (req, res, next) => {
       return res.status(401).json({ message: "Worker not found", status: 401 });
     }
 
+    // Check if worker account is blocked
+    if (worker.accountStatus === 'blocked') {
+      return res.status(403).json({ 
+        message: "Your account has been blocked by admin. Please contact support.", 
+        status: 403,
+        blocked: true
+      });
+    }
+
     req.worker = worker;
     next();
 
@@ -57,6 +66,15 @@ export const validWorker = async (req, res, next) => {
       return res.status(404).json({ 
         message: "Worker account not found", 
         status: 404 
+      });
+    }
+
+    // Check if worker account is blocked
+    if (worker.accountStatus === 'blocked') {
+      return res.status(403).json({ 
+        message: "Your account has been blocked by admin. Please contact support.", 
+        status: 403,
+        blocked: true
       });
     }
 

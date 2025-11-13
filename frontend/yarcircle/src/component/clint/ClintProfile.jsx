@@ -9,6 +9,26 @@ const ClintProfile = () => {
   const [client, setClient] = useState(null)
   const [loading, setLoading] = useState(true)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false)
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState(null)
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false)
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false)
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    companyName: '',
+    location: ''
+  })
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
 
   useEffect(() => {
     // Check authentication first
@@ -32,6 +52,14 @@ const ClintProfile = () => {
       if (response.ok) {
         const data = await response.json()
         setClient(data.client)
+        // Initialize edit form with client data
+        setEditFormData({
+          name: data.client.name || '',
+          email: data.client.email || '',
+          phone: data.client.phone || '',
+          companyName: data.client.companyName || '',
+          location: data.client.location || ''
+        })
       } else {
         clearClientToken()
         navigate('/client/login')
@@ -49,6 +77,190 @@ const ClintProfile = () => {
     const success = await logout()
     if (success) {
       navigate('/')
+    }
+  }
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file')
+        return
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB')
+        return
+      }
+
+      setSelectedFile(file)
+      
+      // Create preview URL
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result)
+      }
+      reader.readAsDataURL(file)
+      
+      setShowPhotoUploadModal(true)
+    }
+  }
+
+  const handleUploadPhoto = async () => {
+    if (!selectedFile) return
+
+    setUploadingPhoto(true)
+    try {
+      const token = localStorage.getItem('clientToken')
+      const formData = new FormData()
+      formData.append('profilePicture', selectedFile)
+
+      const response = await fetch(`${API_URL}/clients/upload-profile-picture`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setClient(data.client)
+        setShowPhotoUploadModal(false)
+        setSelectedFile(null)
+        setPreviewUrl(null)
+        alert('✅ Profile picture updated successfully!')
+      } else {
+        const errorData = await response.json()
+        alert(`❌ ${errorData.error || 'Failed to upload profile picture'}`)
+      }
+    } catch (error) {
+      console.error('Error uploading profile picture:', error)
+      alert('❌ Error uploading profile picture')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const cancelPhotoUpload = () => {
+    setShowPhotoUploadModal(false)
+    setSelectedFile(null)
+    setPreviewUrl(null)
+  }
+
+  const handleEditProfile = () => {
+    setShowEditProfileModal(true)
+    setIsSettingsOpen(false)
+  }
+
+  const handleEditFormChange = (e) => {
+    setEditFormData({
+      ...editFormData,
+      [e.target.name]: e.target.value
+    })
+  }
+
+  const handleSaveProfile = async () => {
+    setSavingProfile(true)
+    try {
+      const token = localStorage.getItem('clientToken')
+      const response = await fetch(`${API_URL}/clients/update-profile`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(editFormData)
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setClient(data.client)
+        setShowEditProfileModal(false)
+        alert('✅ Profile updated successfully!')
+      } else {
+        const errorData = await response.json()
+        alert(`❌ ${errorData.error || 'Failed to update profile'}`)
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      alert('❌ Error updating profile')
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  const handleChangePassword = () => {
+    setShowChangePasswordModal(true)
+    setIsSettingsOpen(false)
+    setPasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    })
+  }
+
+  const handlePasswordChange = (e) => {
+    setPasswordData({
+      ...passwordData,
+      [e.target.name]: e.target.value
+    })
+  }
+
+  const handleSavePassword = async () => {
+    // Validation
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      alert('❌ Please fill in all fields')
+      return
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      alert('❌ New passwords do not match')
+      return
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      alert('❌ New password must be at least 6 characters')
+      return
+    }
+
+    setChangingPassword(true)
+    try {
+      const token = localStorage.getItem('clientToken')
+      const response = await fetch(`${API_URL}/clients/change-password`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      })
+
+      if (response.ok) {
+        setShowChangePasswordModal(false)
+        setPasswordData({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        })
+        alert('✅ Password changed successfully!')
+      } else {
+        const errorData = await response.json()
+        alert(`❌ ${errorData.error || 'Failed to change password'}`)
+      }
+    } catch (error) {
+      console.error('Error changing password:', error)
+      alert('❌ Error changing password')
+    } finally {
+      setChangingPassword(false)
     }
   }
 
@@ -110,14 +322,14 @@ const ClintProfile = () => {
               <span className="font-medium">Home</span>
             </button>
             
-            <button className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors relative">
+            {/* <button className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors relative">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
               <span className="font-medium">Notifications</span>
               {/* Notification Badge */}
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            {/* </button> */} */
 
             <button 
               onClick={() => navigate('/client/pricing')}
@@ -188,16 +400,36 @@ const ClintProfile = () => {
           <div className="px-8 pb-8">
             <div className="flex items-end justify-between -mt-16">
               <div className="flex items-end gap-6">
-                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-5xl shadow-xl border-4 border-white">
-                  {client?.profilePicture ? (
-                    <img 
-                      src={client.profilePicture} 
-                      alt={client.name} 
-                      className="w-32 h-32 rounded-full object-cover"
+                {/* Profile Picture with Upload Button */}
+                <div className="relative group">
+                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-5xl shadow-xl border-4 border-white overflow-hidden">
+                    {client?.profilePicture ? (
+                      <img 
+                        src={client.profilePicture} 
+                        alt={client.name} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      client?.name?.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  {/* Camera Icon Overlay */}
+                  <label 
+                    htmlFor="profile-photo-upload"
+                    className="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg cursor-pointer transition-all transform hover:scale-110"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <input
+                      id="profile-photo-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
                     />
-                  ) : (
-                    client?.name?.charAt(0).toUpperCase()
-                  )}
+                  </label>
                 </div>
                 <div className="mb-4">
                   <h2 className="text-3xl font-bold text-gray-800">{client?.name}</h2>
@@ -443,10 +675,16 @@ const ClintProfile = () => {
         <div className="mt-6 bg-white rounded-lg shadow-md p-6">
           <h3 className="text-xl font-bold text-gray-800 mb-4">Account Actions</h3>
           <div className="flex flex-wrap gap-4">
-            <button className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+            <button 
+              onClick={handleEditProfile}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
               Edit Profile
             </button>
-            <button className="px-6 py-2 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors">
+            <button 
+              onClick={handleChangePassword}
+              className="px-6 py-2 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors"
+            >
               Change Password
             </button>
             <button className="px-6 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors">
@@ -489,10 +727,7 @@ const ClintProfile = () => {
                 <div className="space-y-2">
                   {/* Edit Profile */}
                   <button 
-                    onClick={() => {
-                      setIsSettingsOpen(false)
-                      // Add navigation or action here
-                    }}
+                    onClick={handleEditProfile}
                     className="w-full flex items-center gap-4 p-4 hover:bg-blue-50 rounded-lg transition-colors group"
                   >
                     <div className="bg-blue-100 p-3 rounded-lg group-hover:bg-blue-200 transition-colors">
@@ -508,10 +743,7 @@ const ClintProfile = () => {
 
                   {/* Change Password */}
                   <button 
-                    onClick={() => {
-                      setIsSettingsOpen(false)
-                      // Add navigation or action here
-                    }}
+                    onClick={handleChangePassword}
                     className="w-full flex items-center gap-4 p-4 hover:bg-green-50 rounded-lg transition-colors group"
                   >
                     <div className="bg-green-100 p-3 rounded-lg group-hover:bg-green-200 transition-colors">
@@ -580,6 +812,270 @@ const ClintProfile = () => {
             </div>
           </div>
         </>
+      )}
+
+      {/* Photo Upload Modal */}
+      {showPhotoUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 rounded-t-2xl">
+              <h2 className="text-2xl font-bold">Upload Profile Picture</h2>
+              <p className="text-blue-100 text-sm mt-1">Choose your best photo</p>
+            </div>
+
+            <div className="p-6">
+              {/* Preview */}
+              {previewUrl && (
+                <div className="mb-6 flex justify-center">
+                  <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-blue-500 shadow-lg">
+                    <img 
+                      src={previewUrl} 
+                      alt="Preview" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* File Info */}
+              {selectedFile && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold">File:</span> {selectedFile.name}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold">Size:</span> {(selectedFile.size / 1024).toFixed(2)} KB
+                  </p>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex gap-4">
+                <button
+                  onClick={cancelPhotoUpload}
+                  disabled={uploadingPhoto}
+                  className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUploadPhoto}
+                  disabled={uploadingPhoto}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {uploadingPhoto ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      Upload
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {showEditProfileModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 rounded-t-2xl">
+              <h2 className="text-2xl font-bold">Edit Profile</h2>
+              <p className="text-blue-100 text-sm mt-1">Update your personal information</p>
+            </div>
+
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={editFormData.name}
+                    onChange={handleEditFormChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter your name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={editFormData.email}
+                    onChange={handleEditFormChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter your email"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={editFormData.phone}
+                    onChange={handleEditFormChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter your phone"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                  <input
+                    type="text"
+                    name="companyName"
+                    value={editFormData.companyName}
+                    onChange={handleEditFormChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter company name"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                  <input
+                    type="text"
+                    name="location"
+                    value={editFormData.location}
+                    onChange={handleEditFormChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter your location"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-4 mt-6">
+                <button
+                  onClick={() => setShowEditProfileModal(false)}
+                  disabled={savingProfile}
+                  className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={savingProfile}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {savingProfile ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Save Changes
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {showChangePasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-t-2xl">
+              <h2 className="text-2xl font-bold">Change Password</h2>
+              <p className="text-green-100 text-sm mt-1">Update your account password</p>
+            </div>
+
+            <div className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Current Password *</label>
+                  <input
+                    type="password"
+                    name="currentPassword"
+                    value={passwordData.currentPassword}
+                    onChange={handlePasswordChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Enter current password"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">New Password *</label>
+                  <input
+                    type="password"
+                    name="newPassword"
+                    value={passwordData.newPassword}
+                    onChange={handlePasswordChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Enter new password (min 6 characters)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password *</label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    value={passwordData.confirmPassword}
+                    onChange={handlePasswordChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Confirm new password"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-4 mt-6">
+                <button
+                  onClick={() => setShowChangePasswordModal(false)}
+                  disabled={changingPassword}
+                  className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSavePassword}
+                  disabled={changingPassword}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {changingPassword ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Changing...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                      </svg>
+                      Change Password
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

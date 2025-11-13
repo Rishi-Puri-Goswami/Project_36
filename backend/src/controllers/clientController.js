@@ -2,12 +2,14 @@ import { ClientPost } from "../models/client_post_model.js";
 import { Payment } from "../models/payment_model.js";
 import { Client } from "../models/client_models.js";
 import { Worker } from "../models/worker_model.js";
+import { WorkerPost } from "../models/worker_post_model.js";
 import jwt from "jsonwebtoken";
 import { Subscription } from "../models/subscription_model.js";
 import  razorpay  from "../config/razorpay.js";
 import { validatePaymentVerification } from "razorpay/dist/utils/razorpay-utils.js";
 import { Plan } from "../models/planes_model.js";
 import { sendOtpSms } from "../utils/smsService.js";
+import imagekit from "../config/imagekit.js";
 
 export const registerClint = async (req , res )=>{
 
@@ -465,29 +467,288 @@ export const listClientPostsForAdmin = async (req, res) => {
 };
 
 
+/**
+ * 📋 Get Worker Applications for a Job Post
+ * Returns LIMITED worker info (name, work type, experience, profile picture)
+ * Does NOT show contact details (phone, email) until unlocked
+ */
 export const workerApplication = async (req, res) => {
   try {
+    const { postId } = req.params;
+    const clientId = req.user._id; // Get from auth middleware
 
-    const {postId} = req.params ;
-
-    if(!postId){
-        return res.status(400).json({error : "postId is required"});
+    if (!postId) {
+      return res.status(400).json({ error: "postId is required" });
     }
 
+    // Verify post belongs to this client
     const post = await ClientPost.findById(postId).populate('workerApplications');
-    if(!post){
-        return res.status(404).json({error : "post not found"});
+    if (!post) {
+      return res.status(404).json({ error: "post not found" });
     }
 
+    if (post.clientId.toString() !== clientId.toString()) {
+      return res.status(403).json({ error: "Unauthorized - This is not your job post" });
+    }
 
-    const applications = post.workerApplications;
+    // Get client's subscription to check unlocked workers
+    const subscription = await Subscription.findOne({
+      userId: clientId,
+      userType: 'Client',
+      status: 'active'
+    });
 
-    return res.status(200).json({message : "applications fetched successfully" , applications });
-    
+    const now = new Date();
+    const unlockedWorkerIds = subscription 
+      ? subscription.unlockedWorkers
+          .filter(unlock => unlock.expiresAt > now)
+          .map(unlock => unlock.workerId.toString())
+      : [];
 
+    // Return LIMITED worker info (hide contact details until unlocked)
+    const applications = post.workerApplications.map(worker => {
+      const isUnlocked = unlockedWorkerIds.includes(worker._id.toString());
+      const unlockInfo = subscription?.unlockedWorkers.find(
+        u => u.workerId.toString() === worker._id.toString() && u.expiresAt > now
+      );
+
+      return {
+        _id: worker._id,
+        name: worker.name,
+        workType: worker.workType,
+        yearsOfExperience: worker.yearsOfExperience,
+        location: worker.location,
+        profilePicture: worker.profilePicture,
+        skills: worker.skills,
+        bio: worker.bio,
+        age: worker.age,
+        
+        // 🔒 Contact details only if unlocked
+        isUnlocked: isUnlocked,
+        ...(isUnlocked && {
+          phone: worker.phone,
+          email: worker.email,
+          workPhotos: worker.workPhotos,
+          idProof: worker.idProof,
+          coordinates: worker.coordinates,
+          unlockExpiresAt: unlockInfo?.expiresAt,
+          timeRemaining: Math.ceil((unlockInfo?.expiresAt - now) / (1000 * 60 * 60)) + ' hours'
+        })
+      };
+    });
+
+    return res.status(200).json({
+      message: "applications fetched successfully",
+      applications,
+      subscription: subscription ? {
+        viewsAllowed: subscription.viewsAllowed,
+        viewsUsed: subscription.viewsUsed,
+        creditsRemaining: subscription.viewsAllowed - subscription.viewsUsed
+      } : null,
+      totalApplications: applications.length,
+      unlockedCount: applications.filter(a => a.isUnlocked).length
+    });
 
   } catch (err) {
     console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+/**
+ * 🔓 Unlock Worker Profile - Deduct 1 Credit for 24-hour Access
+ * When client clicks "View Profile", this endpoint:
+ * 1. Checks if worker is already unlocked and not expired (free access)
+ * 2. If expired or never unlocked, deducts 1 credit
+ * 3. Grants 24-hour access to worker profile
+ */
+export const unlockWorkerProfile = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    const clientId = req.user._id;
+
+    // Validate worker exists
+    const worker = await Worker.findById(workerId);
+    if (!worker) {
+      return res.status(404).json({ error: 'Worker not found' });
+    }
+
+    // Get client's active subscription
+    const subscription = await Subscription.findOne({
+      userId: clientId,
+      userType: 'Client',
+      status: 'active'
+    });
+
+    if (!subscription) {
+      return res.status(403).json({ 
+        error: 'No active subscription found',
+        message: 'Please purchase a plan to view worker profiles'
+      });
+    }
+
+    // Check if worker is already unlocked and not expired
+    const now = new Date();
+    const existingUnlock = subscription.unlockedWorkers.find(
+      unlock => unlock.workerId.toString() === workerId && unlock.expiresAt > now
+    );
+
+    if (existingUnlock) {
+      // Worker already unlocked and still valid - no credit deduction
+      const timeRemaining = Math.ceil((existingUnlock.expiresAt - now) / (1000 * 60 * 60)); // hours
+      
+      return res.status(200).json({
+        success: true,
+        message: 'Worker profile already unlocked',
+        alreadyUnlocked: true,
+        worker: {
+          _id: worker._id,
+          name: worker.name,
+          email: worker.email,
+          phone: worker.phone,
+          age: worker.age,
+          workType: worker.workType,
+          yearsOfExperience: worker.yearsOfExperience,
+          location: worker.location,
+          coordinates: worker.coordinates,
+          skills: worker.skills,
+          bio: worker.bio,
+          profilePicture: worker.profilePicture,
+          workPhotos: worker.workPhotos,
+          idProof: worker.idProof
+        },
+        unlockInfo: {
+          unlockedAt: existingUnlock.unlockedAt,
+          expiresAt: existingUnlock.expiresAt,
+          timeRemaining: `${timeRemaining} hours`
+        },
+        subscription: {
+          viewsAllowed: subscription.viewsAllowed,
+          viewsUsed: subscription.viewsUsed,
+          creditsRemaining: subscription.viewsAllowed - subscription.viewsUsed
+        }
+      });
+    }
+
+    // Check if client has enough credits
+    const creditsRemaining = subscription.viewsAllowed - subscription.viewsUsed;
+    if (creditsRemaining <= 0) {
+      return res.status(403).json({
+        error: 'Insufficient credits',
+        message: 'You have no credits left. Please purchase more credits to view worker profiles.',
+        creditsRemaining: 0
+      });
+    }
+
+    // Deduct 1 credit
+    subscription.viewsUsed += 1;
+
+    // Add worker to viewedWorkers if not already there
+    if (!subscription.viewedWorkers.includes(workerId)) {
+      subscription.viewedWorkers.push(workerId);
+    }
+
+    // Remove expired unlocks for this worker
+    subscription.unlockedWorkers = subscription.unlockedWorkers.filter(
+      unlock => !(unlock.workerId.toString() === workerId && unlock.expiresAt <= now)
+    );
+
+    // Add new unlock with 24-hour expiry
+    const unlockedAt = new Date();
+    const expiresAt = new Date(unlockedAt.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+    
+    subscription.unlockedWorkers.push({
+      workerId: workerId,
+      unlockedAt: unlockedAt,
+      expiresAt: expiresAt
+    });
+
+    await subscription.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Worker profile unlocked successfully! 1 credit deducted.',
+      creditDeducted: true,
+      worker: {
+        _id: worker._id,
+        name: worker.name,
+        email: worker.email,
+        phone: worker.phone,
+        age: worker.age,
+        workType: worker.workType,
+        yearsOfExperience: worker.yearsOfExperience,
+        location: worker.location,
+        coordinates: worker.coordinates,
+        skills: worker.skills,
+        bio: worker.bio,
+        profilePicture: worker.profilePicture,
+        workPhotos: worker.workPhotos,
+        idProof: worker.idProof
+      },
+      unlockInfo: {
+        unlockedAt: unlockedAt,
+        expiresAt: expiresAt,
+        validFor: '24 hours'
+      },
+      subscription: {
+        viewsAllowed: subscription.viewsAllowed,
+        viewsUsed: subscription.viewsUsed,
+        creditsRemaining: subscription.viewsAllowed - subscription.viewsUsed
+      }
+    });
+
+  } catch (err) {
+    console.error('Error in unlockWorkerProfile:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+/**
+ * 📋 Get Client's Unlocked Workers
+ * Returns list of workers client has unlocked with expiry status
+ */
+export const getUnlockedWorkers = async (req, res) => {
+  try {
+    const clientId = req.user._id;
+
+    const subscription = await Subscription.findOne({
+      userId: clientId,
+      userType: 'Client',
+      status: 'active'
+    }).populate('unlockedWorkers.workerId', 'name email phone workType location profilePicture');
+
+    if (!subscription) {
+      return res.status(404).json({ error: 'No active subscription found' });
+    }
+
+    const now = new Date();
+
+    // Separate active and expired unlocks
+    const unlockedWorkers = subscription.unlockedWorkers.map(unlock => {
+      const isExpired = unlock.expiresAt <= now;
+      const timeRemaining = isExpired ? 0 : Math.ceil((unlock.expiresAt - now) / (1000 * 60 * 60));
+
+      return {
+        worker: unlock.workerId,
+        unlockedAt: unlock.unlockedAt,
+        expiresAt: unlock.expiresAt,
+        isExpired,
+        timeRemaining: isExpired ? 'Expired' : `${timeRemaining} hours`
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      unlockedWorkers,
+      subscription: {
+        viewsAllowed: subscription.viewsAllowed,
+        viewsUsed: subscription.viewsUsed,
+        creditsRemaining: subscription.viewsAllowed - subscription.viewsUsed
+      }
+    });
+
+  } catch (err) {
+    console.error('Error in getUnlockedWorkers:', err);
     return res.status(500).json({ error: 'Server error' });
   }
 };
@@ -857,6 +1118,19 @@ export const getAllAvailableWorkers = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(100);
 
+    // Get post count for each worker
+    const workersWithPostCount = await Promise.all(
+      workers.map(async (worker) => {
+        const postCount = await WorkerPost.countDocuments({ worker: worker._id });
+        return {
+          ...worker._doc,
+          postCount
+        };
+      })
+    );
+
+    workers = workersWithPostCount;
+
     // 📍 Filter by distance if latitude/longitude provided (30km radius)
     if (latitude && longitude) {
       const userLat = parseFloat(latitude);
@@ -876,13 +1150,13 @@ export const getAllAvailableWorkers = async (req, res) => {
         );
 
         // Add distance to worker object for frontend display
-        worker._doc.distance = Math.round(distance * 10) / 10; // Round to 1 decimal
+        worker.distance = Math.round(distance * 10) / 10; // Round to 1 decimal
 
         return distance <= maxDistance;
       });
 
       // Sort by distance (nearest first)
-      workers.sort((a, b) => a._doc.distance - b._doc.distance);
+      workers.sort((a, b) => a.distance - b.distance);
 
       console.log(`📍 Found ${workers.length} workers within ${maxDistance}km radius`);
     }
@@ -1212,6 +1486,11 @@ export const viewWorkerProfile = async (req, res) => {
       return res.status(404).json({ error: "Worker not found" });
     }
 
+    // Get worker posts
+    const workerPosts = await WorkerPost.find({ worker: workerId })
+      .sort({ createdAt: -1 })
+      .select('title description images skills availability expectedSalary createdAt');
+
     // Check if this worker was already viewed (remains unlocked)
     const alreadyViewed = subscription.viewedWorkers.some(
       id => id.toString() === workerId.toString()
@@ -1222,6 +1501,7 @@ export const viewWorkerProfile = async (req, res) => {
       return res.status(200).json({ 
         message: "Worker profile fetched successfully (already viewed)",
         worker: worker,
+        posts: workerPosts,
         creditsRemaining: subscription.viewsAllowed - subscription.viewsUsed,
         creditsUsed: 0,
         alreadyViewed: true
@@ -1248,6 +1528,7 @@ export const viewWorkerProfile = async (req, res) => {
     return res.status(200).json({ 
       message: "Worker profile fetched successfully",
       worker: worker,
+      posts: workerPosts,
       creditsRemaining: subscription.viewsAllowed - subscription.viewsUsed,
       creditsUsed: 1,
       alreadyViewed: false
@@ -1308,6 +1589,55 @@ export const updateClientLocation = async (req, res) => {
   } catch (error) {
     console.error("Error updating client location:", error);
     return res.status(500).json({ error: "Server error" });
+  }
+};
+
+// 📸 Upload Client Profile Picture using ImageKit
+export const uploadClientProfilePicture = async (req, res) => {
+  try {
+    const clientId = req.user._id;
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Upload to ImageKit
+    const uploadResponse = await imagekit.upload({
+      file: req.file.buffer.toString('base64'),
+      fileName: `client_${clientId}_${Date.now()}.${req.file.mimetype.split('/')[1]}`,
+      folder: '/profile_pictures/clients',
+      useUniqueFileName: true
+    });
+
+    // Update client profile picture URL in database
+    const client = await Client.findByIdAndUpdate(
+      clientId,
+      { profilePicture: uploadResponse.url },
+      { new: true }
+    ).select('-password');
+
+    console.log(`📸 Client ${client.name} profile picture updated`);
+
+    return res.status(200).json({
+      message: "Profile picture uploaded successfully",
+      profilePicture: uploadResponse.url,
+      client: client
+    });
+
+  } catch (error) {
+    console.error("Error uploading client profile picture:", error);
+    return res.status(500).json({ error: "Failed to upload profile picture" });
+  }
+};
+
+// 🔑 Get ImageKit Authentication Parameters for Client
+export const getImageKitAuthParams = async (req, res) => {
+  try {
+    const authenticationParameters = imagekit.getAuthenticationParameters();
+    return res.status(200).json(authenticationParameters);
+  } catch (error) {
+    console.error("Error getting ImageKit auth params:", error);
+    return res.status(500).json({ error: "Failed to get authentication parameters" });
   }
 };
 

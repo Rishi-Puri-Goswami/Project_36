@@ -27,9 +27,14 @@ import {
   verifySubscriptionPayment,
   checkSubscriptionAccess,
   viewWorkerProfile,
-  updateClientLocation
+  updateClientLocation,
+  unlockWorkerProfile,
+  getUnlockedWorkers,
+  uploadClientProfilePicture,
+  getImageKitAuthParams
 } from "../controllers/clientController.js";
 import { clint_auth } from "../middlewares/clint_middlewares/clint_auth.js";
+import { upload } from "../middlewares/uploads/upload.js";
 
 const clientRouter = express.Router();
 
@@ -44,6 +49,10 @@ clientRouter.post('/logout', logoutClint);
 
 // Location routes (auth required)
 clientRouter.post('/update-location', clint_auth, updateClientLocation);
+
+// 📸 Profile Picture Upload (auth required)
+clientRouter.post('/upload-profile-picture', clint_auth, upload.single('profilePicture'), uploadClientProfilePicture);
+clientRouter.get('/imagekit-auth', getImageKitAuthParams);
 
 // Worker Search routes (public)
 clientRouter.get('/workers/available', getAllAvailableWorkers); // Public route for clients to search workers
@@ -77,8 +86,12 @@ clientRouter.post('/subscription/verify-payment', clint_auth, verifySubscription
 // Worker Profile View (auth required - consumes credits)
 clientRouter.get('/worker/view/:workerId', clint_auth, viewWorkerProfile);
 
-// Application routes
-clientRouter.get('/applications/:postId', workerApplication);
+// 🔓 Worker Profile Unlock - Credit-based access with 24-hour validity
+clientRouter.post('/worker/unlock/:workerId', clint_auth, unlockWorkerProfile);
+clientRouter.get('/worker/unlocked', clint_auth, getUnlockedWorkers);
+
+// Application routes (auth required)
+clientRouter.get('/applications/:postId', clint_auth, workerApplication);
 
 export default clientRouter;
 

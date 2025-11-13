@@ -4,7 +4,15 @@ import { Client } from "../../models/client_models.js";
 
 export const clint_auth = async (req, res, next) => {
     try {
-        const token = req.cookies?.clinttoken;
+        // Check for token in Authorization header first, then fall back to cookies
+        let token = req.cookies?.clinttoken;
+        
+        if (!token) {
+            const authHeader = req.headers.authorization;
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                token = authHeader.substring(7); // Remove 'Bearer ' prefix
+            }
+        }
 
         if (!token) {
             return res.status(401).json({ message: "Authentication required. No token provided", status: 401 });
@@ -28,6 +36,17 @@ export const clint_auth = async (req, res, next) => {
             return res.status(401).json({ message: "Client not found", status: 401 });
         }
 
+        // Check if client account is blocked
+        if (client.status === 'blocked') {
+            return res.status(403).json({ 
+                message: "Your account has been blocked by admin. Please contact support.", 
+                status: 403,
+                blocked: true
+            });
+        }
+
+        // Set both req.user and req.clint for compatibility
+        req.user = client;
         req.clint = client;
         next();
 
@@ -61,6 +80,15 @@ export const validClient = async (req, res, next) => {
 
         if (!finduser) {
             return res.status(202).json({ message: "in valid user", status: 202 });
+        }
+
+        // Check if client account is blocked
+        if (finduser.status === 'blocked') {
+            return res.status(403).json({ 
+                message: "Your account has been blocked by admin. Please contact support.", 
+                status: 403,
+                blocked: true
+            });
         }
 
         req.user = finduser;

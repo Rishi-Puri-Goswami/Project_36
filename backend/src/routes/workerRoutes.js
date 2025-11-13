@@ -14,7 +14,8 @@ import {
   getWorkerPosts,
   deleteWorkerPost,
   getAllWorkerPosts,
-  updateWorkerLocation
+  updateWorkerLocation,
+  uploadWorkerProfilePicture
 } from "../controllers/workerController.js";
 import { upload } from "../middlewares/uploads/upload.js";
 import { worker_auth } from "../middlewares/worker_middlewares/worker_auth.js";
@@ -32,8 +33,11 @@ workerrouter.put('/update-profile', worker_auth, updateWorkerProfile);
 // ============= LOCATION ROUTES =============
 workerrouter.post('/update-location', worker_auth, updateWorkerLocation);
 
+// ============= PROFILE PICTURE UPLOAD =============
+workerrouter.post('/upload-profile-picture', worker_auth, upload.single('profilePicture'), uploadWorkerProfilePicture);
+
 // ============= WORKER POST ROUTES (Must come before /:id route) =============
-workerrouter.post('/create-post', worker_auth, createWorkerPost);
+workerrouter.post('/create-post', worker_auth, upload.array('postImages', 5), createWorkerPost); // Allow up to 5 images
 workerrouter.get('/my-posts', worker_auth, getWorkerPosts);
 workerrouter.delete('/delete-post/:postId', worker_auth, deleteWorkerPost);
 workerrouter.get('/all-posts', getAllWorkerPosts); // Public route to view all worker posts

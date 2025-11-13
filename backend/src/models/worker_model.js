@@ -28,10 +28,15 @@ const workerSchema = new mongoose.Schema({
     lastSentAt: Date 
   },
   status: { type: String, enum: ["pending", "approved", "rejected"], default: "approved" }, // Auto-approve workers
+  accountStatus: { type: String, enum: ['active', 'blocked'], default: 'active' },
+  blockReason: String,
+  isFeatured: { type: Boolean, default: false },
+  featuredUntil: Date,
+  isVerified: { type: Boolean, default: false },
+  verifiedAt: Date,
   adminNote: String,
   subscription: { type: mongoose.Schema.Types.ObjectId, ref: "Subscription" },
   appliedJobs: [{ type: mongoose.Schema.Types.ObjectId, ref: "ClientPost" }]
 }, { timestamps: true });
 
 export const Worker = mongoose.model("Worker", workerSchema);
-

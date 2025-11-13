@@ -4,6 +4,7 @@ import { Payment } from "../models/payment_model.js";
 import { Plan } from "../models/planes_model.js";
 import { Client } from "../models/client_models.js";
 import { Subscription } from "../models/subscription_model.js";
+import mongoose from "mongoose";
 
 export const listPendingWorkers = async (req, res) => {
   try {
@@ -470,6 +471,1502 @@ export const getRevenueAnalytics = async (req, res) => {
 
   } catch (error) {
     console.error('Error in getRevenueAnalytics:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching revenue analytics',
+      details: error.message 
+    });
+  }
+};
+
+// ==================== CLIENT MANAGEMENT ====================
+
+/**
+ * Get All Clients with Search and Filter
+ * Query params: search, status, page, limit
+ */
+export const getAllClients = async (req, res) => {
+  try {
+    const { search, status, page = 1, limit = 10 } = req.query;
+    
+    // Build filter query
+    const filter = {};
+    
+    // Search by name, email, company, or phone
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { companyName: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Filter by status (active/blocked)
+    if (status) {
+      filter.status = status;
+    }
+    
+    // Pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Get clients with pagination
+    const clients = await Client.find(filter)
+      .select('-password -otp -otpExpiry')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    // Get total count for pagination
+    const total = await Client.countDocuments(filter);
+    
+    // Get subscription status for each client
+    const clientsWithStats = await Promise.all(
+      clients.map(async (client) => {
+        const subscription = await Subscription.findOne({ 
+          userId: client._id, 
+          userType: 'Client' 
+        });
+        
+        const jobPostsCount = await ClientPost.countDocuments({ 
+          clientId: client._id 
+        });
+        
+        return {
+          ...client.toObject(),
+          subscription: subscription ? {
+            planName: subscription.planName,
+            status: subscription.status,
+            creditsRemaining: subscription.viewsAllowed - subscription.viewsUsed
+          } : null,
+          jobPostsCount
+        };
+      })
+    );
+    
+    return res.status(200).json({
+      message: 'Clients fetched successfully',
+      clients: clientsWithStats,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in getAllClients:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching clients',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get Single Client Details
+ */
+export const getClientDetails = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    
+    // Get client
+    const client = await Client.findById(clientId).select('-password -otp -otpExpiry');
+    
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+    
+    // Get subscription
+    const subscription = await Subscription.findOne({ 
+      userId: clientId, 
+      userType: 'Client' 
+    }).populate('planId');
+    
+    // Get job posts
+    const jobPosts = await ClientPost.find({ clientId })
+      .sort({ createdAt: -1 })
+      .limit(10);
+    
+    // Get payment history
+    const payments = await Payment.find({ userId: clientId })
+      .sort({ createdAt: -1 })
+      .limit(10);
+    
+    return res.status(200).json({
+      message: 'Client details fetched successfully',
+      client: {
+        ...client.toObject(),
+        subscription,
+        jobPosts,
+        payments,
+        stats: {
+          totalJobPosts: await ClientPost.countDocuments({ clientId }),
+          totalPayments: await Payment.countDocuments({ userId: clientId }),
+          totalSpent: await Payment.aggregate([
+            { $match: { userId: client._id, status: 'completed' } },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+          ]).then(result => result[0]?.total || 0)
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in getClientDetails:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching client details',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get Client's Job Posts
+ */
+export const getClientJobPosts = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const jobPosts = await ClientPost.find({ clientId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('workerApplications', 'name email phone');
+    
+    const total = await ClientPost.countDocuments({ clientId });
+    
+    return res.status(200).json({
+      message: 'Job posts fetched successfully',
+      jobPosts,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in getClientJobPosts:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching job posts',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get Client's Payment History
+ */
+export const getClientPaymentHistory = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const payments = await Payment.find({ userId: clientId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('planId', 'planName viewsAllowed price');
+    
+    const total = await Payment.countDocuments({ userId: clientId });
+    
+    // Calculate total spent
+    const totalSpent = await Payment.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(clientId), status: 'completed' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    
+    return res.status(200).json({
+      message: 'Payment history fetched successfully',
+      payments,
+      totalSpent: totalSpent[0]?.total || 0,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in getClientPaymentHistory:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching payment history',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get Client's Subscription Status
+ */
+export const getClientSubscription = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    
+    const subscription = await Subscription.findOne({ 
+      userId: clientId, 
+      userType: 'Client' 
+    }).populate('planId');
+    
+    if (!subscription) {
+      return res.status(404).json({ 
+        message: 'No subscription found for this client',
+        subscription: null 
+      });
+    }
+    
+    return res.status(200).json({
+      message: 'Subscription fetched successfully',
+      subscription: {
+        ...subscription.toObject(),
+        creditsRemaining: subscription.viewsAllowed - subscription.viewsUsed,
+        creditsUsed: subscription.viewsUsed
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in getClientSubscription:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching subscription',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Block/Unblock Client Account
+ */
+export const toggleClientStatus = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { status } = req.body; // 'active' or 'blocked'
+    
+    if (!status || !['active', 'blocked'].includes(status)) {
+      return res.status(400).json({ 
+        error: 'Invalid status. Must be "active" or "blocked"' 
+      });
+    }
+    
+    const client = await Client.findByIdAndUpdate(
+      clientId,
+      { status },
+      { new: true }
+    ).select('-password -otp -otpExpiry');
+    
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+    
+    return res.status(200).json({
+      message: `Client ${status === 'blocked' ? 'blocked' : 'unblocked'} successfully`,
+      client
+    });
+    
+  } catch (error) {
+    console.error('Error in toggleClientStatus:', error);
+    return res.status(500).json({ 
+      error: 'Server error while updating client status',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Delete Client Account
+ */
+export const deleteClient = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    
+    // Delete client
+    const client = await Client.findByIdAndDelete(clientId);
+    
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+    
+    // Also delete related data
+    await Subscription.deleteMany({ userId: clientId, userType: 'Client' });
+    await ClientPost.deleteMany({ clientId });
+    // Note: We're keeping Payment records for accounting purposes
+    
+    return res.status(200).json({
+      message: 'Client deleted successfully',
+      deletedClient: {
+        id: client._id,
+        name: client.name,
+        email: client.email
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in deleteClient:', error);
+    return res.status(500).json({ 
+      error: 'Server error while deleting client',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Reset Client Credits
+ */
+export const resetClientCredits = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { credits } = req.body;
+    
+    if (typeof credits !== 'number' || credits < 0) {
+      return res.status(400).json({ 
+        error: 'Invalid credits value. Must be a non-negative number' 
+      });
+    }
+    
+    // Find client's subscription
+    const subscription = await Subscription.findOne({ 
+      userId: clientId, 
+      userType: 'Client' 
+    });
+    
+    if (!subscription) {
+      return res.status(404).json({ 
+        error: 'No subscription found for this client' 
+      });
+    }
+    
+    // Update credits (viewsAllowed)
+    subscription.viewsAllowed = credits;
+    subscription.viewsUsed = 0; // Reset usage to 0
+    await subscription.save();
+    
+    return res.status(200).json({
+      message: 'Client credits reset successfully',
+      subscription: {
+        planName: subscription.planName,
+        creditsAllowed: subscription.viewsAllowed,
+        creditsUsed: subscription.viewsUsed,
+        creditsRemaining: subscription.viewsAllowed - subscription.viewsUsed
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in resetClientCredits:', error);
+    return res.status(500).json({ 
+      error: 'Server error while resetting credits',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Block Client Account
+ */
+export const blockClient = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { reason } = req.body;
+    
+    const client = await Client.findByIdAndUpdate(
+      clientId,
+      { 
+        status: 'blocked',
+        blockReason: reason || 'Blocked by admin'
+      },
+      { new: true }
+    ).select('-password -otp -otpExpiry');
+    
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+    
+    return res.status(200).json({
+      message: 'Client blocked successfully',
+      client
+    });
+    
+  } catch (error) {
+    console.error('Error in blockClient:', error);
+    return res.status(500).json({ 
+      error: 'Server error while blocking client',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Unblock Client Account
+ */
+export const unblockClient = async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    
+    const client = await Client.findByIdAndUpdate(
+      clientId,
+      { 
+        status: 'active',
+        $unset: { blockReason: 1 }
+      },
+      { new: true }
+    ).select('-password -otp -otpExpiry');
+    
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+    
+    return res.status(200).json({
+      message: 'Client unblocked successfully',
+      client
+    });
+    
+  } catch (error) {
+    console.error('Error in unblockClient:', error);
+    return res.status(500).json({ 
+      error: 'Server error while unblocking client',
+      details: error.message 
+    });
+  }
+};
+
+
+// ============================================
+// 👷 WORKER MANAGEMENT APIS
+// ============================================
+
+/**
+ * Get All Workers (with Search & Filter)
+ */
+export const getAllWorkers = async (req, res) => {
+  try {
+    const { search, status, workType, page = 1, limit = 10 } = req.query;
+    
+    // Build query
+    let query = {};
+    
+    // Search by name, email, phone, location
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Filter by status (pending, approved, rejected, blocked)
+    if (status) {
+      query.status = status;
+    }
+    
+    // Filter by work type
+    if (workType) {
+      query.workType = { $regex: workType, $options: 'i' };
+    }
+    
+    const skip = (page - 1) * limit;
+    
+    // Get workers with application count
+    const workers = await Worker.find(query)
+      .select('-password -otp')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+    
+    // Add application count for each worker
+    const workersWithStats = await Promise.all(
+      workers.map(async (worker) => {
+        const applicationCount = await ClientPost.countDocuments({
+          workerApplications: worker._id
+        });
+        
+        return {
+          ...worker,
+          applicationCount
+        };
+      })
+    );
+    
+    const total = await Worker.countDocuments(query);
+    
+    return res.status(200).json({
+      message: 'Workers fetched successfully',
+      workers: workersWithStats,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in getAllWorkers:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching workers',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get Worker Details
+ */
+export const getWorkerDetails = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    
+    // Get worker details
+    const worker = await Worker.findById(workerId)
+      .select('-password -otp')
+      .lean();
+    
+    if (!worker) {
+      return res.status(404).json({ error: 'Worker not found' });
+    }
+    
+    // Get worker's job applications (recent 10)
+    const applications = await ClientPost.find({
+      workerApplications: workerId
+    })
+      .populate('clientId', 'name companyName email phone')
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+    
+    // Get total applications count
+    const totalApplications = await ClientPost.countDocuments({
+      workerApplications: workerId
+    });
+    
+    // Get subscription if any
+    const subscription = await Subscription.findOne({
+      userId: workerId,
+      userType: 'Worker'
+    }).lean();
+    
+    return res.status(200).json({
+      message: 'Worker details fetched successfully',
+      worker: {
+        ...worker,
+        applications,
+        subscription,
+        stats: {
+          totalApplications
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in getWorkerDetails:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching worker details',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get Worker's Job Applications (Paginated)
+ */
+export const getWorkerApplications = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    const { page = 1, limit = 10 } = req.query;
+    
+    const skip = (page - 1) * limit;
+    
+    // Get applications
+    const applications = await ClientPost.find({
+      workerApplications: workerId
+    })
+      .populate('clientId', 'name companyName email phone location')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+    
+    const total = await ClientPost.countDocuments({
+      workerApplications: workerId
+    });
+    
+    return res.status(200).json({
+      message: 'Worker applications fetched successfully',
+      applications,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in getWorkerApplications:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching applications',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Verify/Approve Worker Profile
+ */
+export const verifyWorkerProfile = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    const { status, adminNote } = req.body; // status: 'approved' or 'rejected'
+    
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ 
+        error: 'Invalid status. Must be "approved" or "rejected"' 
+      });
+    }
+    
+    const worker = await Worker.findById(workerId);
+    
+    if (!worker) {
+      return res.status(404).json({ error: 'Worker not found' });
+    }
+    
+    worker.status = status;
+    if (adminNote) {
+      worker.adminNote = adminNote;
+    }
+    await worker.save();
+    
+    return res.status(200).json({
+      message: `Worker profile ${status} successfully`,
+      worker: {
+        _id: worker._id,
+        name: worker.name,
+        email: worker.email,
+        status: worker.status,
+        adminNote: worker.adminNote
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in verifyWorkerProfile:', error);
+    return res.status(500).json({ 
+      error: 'Server error while verifying worker',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Block/Unblock Worker Account
+ */
+export const toggleWorkerStatus = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    const { status, reason } = req.body; // status: 'approved' or 'blocked'
+    
+    if (!['approved', 'blocked'].includes(status)) {
+      return res.status(400).json({ 
+        error: 'Invalid status. Must be "approved" or "blocked"' 
+      });
+    }
+    
+    const worker = await Worker.findById(workerId);
+    
+    if (!worker) {
+      return res.status(404).json({ error: 'Worker not found' });
+    }
+    
+    worker.status = status;
+    if (reason) {
+      worker.adminNote = reason;
+    }
+    await worker.save();
+    
+    return res.status(200).json({
+      message: `Worker ${status === 'blocked' ? 'blocked' : 'unblocked'} successfully`,
+      worker: {
+        _id: worker._id,
+        name: worker.name,
+        email: worker.email,
+        status: worker.status,
+        adminNote: worker.adminNote
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in toggleWorkerStatus:', error);
+    return res.status(500).json({ 
+      error: 'Server error while updating worker status',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Delete Worker Account
+ */
+export const deleteWorker = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    
+    const worker = await Worker.findById(workerId);
+    
+    if (!worker) {
+      return res.status(404).json({ error: 'Worker not found' });
+    }
+    
+    // Delete worker's subscriptions
+    await Subscription.deleteMany({ 
+      userId: workerId, 
+      userType: 'Worker' 
+    });
+    
+    // Remove worker from all job applications
+    await ClientPost.updateMany(
+      { workerApplications: workerId },
+      { $pull: { workerApplications: workerId } }
+    );
+    
+    // Delete the worker
+    await Worker.findByIdAndDelete(workerId);
+    
+    return res.status(200).json({
+      message: 'Worker deleted successfully',
+      deletedWorker: {
+        id: worker._id,
+        name: worker.name,
+        email: worker.email
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in deleteWorker:', error);
+    return res.status(500).json({ 
+      error: 'Server error while deleting worker',
+      details: error.message 
+    });
+  }
+};
+
+// Block worker account
+export const blockWorker = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    const { reason } = req.body;
+    
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ error: 'Block reason is required' });
+    }
+    
+    const worker = await Worker.findById(workerId);
+    
+    if (!worker) {
+      return res.status(404).json({ error: 'Worker not found' });
+    }
+    
+    if (worker.accountStatus === 'blocked') {
+      return res.status(400).json({ error: 'Worker is already blocked' });
+    }
+    
+    worker.accountStatus = 'blocked';
+    worker.blockReason = reason;
+    await worker.save();
+    
+    return res.status(200).json({
+      message: 'Worker blocked successfully',
+      worker: {
+        id: worker._id,
+        name: worker.name,
+        email: worker.email,
+        accountStatus: worker.accountStatus,
+        blockReason: worker.blockReason
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in blockWorker:', error);
+    return res.status(500).json({ 
+      error: 'Server error while blocking worker',
+      details: error.message 
+    });
+  }
+};
+
+// Unblock worker account
+export const unblockWorker = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    
+    const worker = await Worker.findById(workerId);
+    
+    if (!worker) {
+      return res.status(404).json({ error: 'Worker not found' });
+    }
+    
+    if (worker.accountStatus === 'active') {
+      return res.status(400).json({ error: 'Worker is not blocked' });
+    }
+    
+    worker.accountStatus = 'active';
+    worker.blockReason = undefined;
+    await worker.save();
+    
+    return res.status(200).json({
+      message: 'Worker unblocked successfully',
+      worker: {
+        id: worker._id,
+        name: worker.name,
+        email: worker.email,
+        accountStatus: worker.accountStatus
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in unblockWorker:', error);
+    return res.status(500).json({ 
+      error: 'Server error while unblocking worker',
+      details: error.message 
+    });
+  }
+};
+
+// Feature worker (highlight in search)
+export const featureWorker = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    const { days = 7 } = req.body; // Default 7 days
+    
+    const worker = await Worker.findById(workerId);
+    
+    if (!worker) {
+      return res.status(404).json({ error: 'Worker not found' });
+    }
+    
+    if (worker.isFeatured && worker.featuredUntil && worker.featuredUntil > new Date()) {
+      return res.status(400).json({ 
+        error: 'Worker is already featured',
+        featuredUntil: worker.featuredUntil
+      });
+    }
+    
+    const featuredUntil = new Date();
+    featuredUntil.setDate(featuredUntil.getDate() + parseInt(days));
+    
+    worker.isFeatured = true;
+    worker.featuredUntil = featuredUntil;
+    await worker.save();
+    
+    return res.status(200).json({
+      message: 'Worker featured successfully',
+      worker: {
+        id: worker._id,
+        name: worker.name,
+        email: worker.email,
+        isFeatured: worker.isFeatured,
+        featuredUntil: worker.featuredUntil
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in featureWorker:', error);
+    return res.status(500).json({ 
+      error: 'Server error while featuring worker',
+      details: error.message 
+    });
+  }
+};
+
+// Unfeature worker
+export const unfeatureWorker = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    
+    const worker = await Worker.findById(workerId);
+    
+    if (!worker) {
+      return res.status(404).json({ error: 'Worker not found' });
+    }
+    
+    if (!worker.isFeatured) {
+      return res.status(400).json({ error: 'Worker is not featured' });
+    }
+    
+    worker.isFeatured = false;
+    worker.featuredUntil = undefined;
+    await worker.save();
+    
+    return res.status(200).json({
+      message: 'Worker unfeatured successfully',
+      worker: {
+        id: worker._id,
+        name: worker.name,
+        email: worker.email,
+        isFeatured: worker.isFeatured
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in unfeatureWorker:', error);
+    return res.status(500).json({ 
+      error: 'Server error while unfeaturing worker',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get All Job Posts (with Search & Filter) - For Admin to Monitor
+ */
+export const getAllJobPosts = async (req, res) => {
+  try {
+    const { search, workType, status, page = 1, limit = 10 } = req.query;
+    
+    let query = {};
+    
+    // Search by work type, location, description
+    if (search) {
+      query.$or = [
+        { workType: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Filter by work type
+    if (workType) {
+      query.workType = { $regex: workType, $options: 'i' };
+    }
+    
+    // Filter by active/expired status
+    if (status === 'active') {
+      query.expiryDate = { $gt: new Date() };
+    } else if (status === 'expired') {
+      query.expiryDate = { $lte: new Date() };
+    }
+    
+    const skip = (page - 1) * limit;
+    
+    const jobPosts = await ClientPost.find(query)
+      .populate('clientId', 'name companyName email phone')
+      .populate('workerApplications', 'name email phone workType')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+    
+    const total = await ClientPost.countDocuments(query);
+    
+    return res.status(200).json({
+      message: 'Job posts fetched successfully',
+      jobPosts,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in getAllJobPosts:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching job posts',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Block/Delete Inappropriate Job Post
+ */
+export const deleteJobPost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { reason } = req.body;
+    
+    const jobPost = await ClientPost.findById(postId)
+      .populate('clientId', 'name email');
+    
+    if (!jobPost) {
+      return res.status(404).json({ error: 'Job post not found' });
+    }
+    
+    // Delete the job post
+    await ClientPost.findByIdAndDelete(postId);
+    
+    return res.status(200).json({
+      message: 'Job post deleted successfully',
+      deletedPost: {
+        id: jobPost._id,
+        workType: jobPost.workType,
+        clientName: jobPost.clientId?.name,
+        reason: reason || 'Inappropriate content'
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in deleteJobPost:', error);
+    return res.status(500).json({ 
+      error: 'Server error while deleting job post',
+      details: error.message 
+    });
+  }
+};
+
+// ==================== SUBSCRIPTION & PLANS MANAGEMENT ====================
+
+/**
+ * Get All Subscription Plans
+ */
+export const getAllPlans = async (req, res) => {
+  try {
+    const plans = await Plan.find().sort({ createdAt: -1 });
+    
+    // Get purchase count for each plan
+    const plansWithStats = await Promise.all(plans.map(async (plan) => {
+      const purchaseCount = await Payment.countDocuments({ 
+        planId: plan._id, 
+        status: 'SUCCESS' 
+      });
+      
+      const activeSubscriptions = await Subscription.countDocuments({
+        planId: plan._id,
+        status: 'active'
+      });
+      
+      return {
+        ...plan.toObject(),
+        purchaseCount,
+        activeSubscriptions
+      };
+    }));
+    
+    return res.status(200).json({
+      plans: plansWithStats,
+      totalPlans: plans.length
+    });
+    
+  } catch (error) {
+    console.error('Error in getAllPlans:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching plans',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get Single Plan Details
+ */
+export const getPlanDetails = async (req, res) => {
+  try {
+    const { planId } = req.params;
+    
+    const plan = await Plan.findById(planId);
+    
+    if (!plan) {
+      return res.status(404).json({ error: 'Plan not found' });
+    }
+    
+    // Get detailed stats
+    const totalPurchases = await Payment.countDocuments({ 
+      planId: plan._id, 
+      status: 'SUCCESS' 
+    });
+    
+    const totalRevenue = await Payment.aggregate([
+      { $match: { planId: plan._id, status: 'SUCCESS' } },
+      { $group: { _id: null, total: { $sum: '$price.amount' } } }
+    ]);
+    
+    const activeSubscriptions = await Subscription.countDocuments({
+      planId: plan._id,
+      status: 'active'
+    });
+    
+    const expiredSubscriptions = await Subscription.countDocuments({
+      planId: plan._id,
+      status: 'expired'
+    });
+    
+    return res.status(200).json({
+      plan,
+      stats: {
+        totalPurchases,
+        totalRevenue: totalRevenue[0]?.total || 0,
+        activeSubscriptions,
+        expiredSubscriptions
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in getPlanDetails:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching plan details',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Update Plan Details
+ */
+export const updatePlan = async (req, res) => {
+  try {
+    const { planId } = req.params;
+    const { planName, viewsAllowed, price, description, planType, duration } = req.body;
+    
+    const plan = await Plan.findById(planId);
+    
+    if (!plan) {
+      return res.status(404).json({ error: 'Plan not found' });
+    }
+    
+    // Check if new planName already exists (if planName is being changed)
+    if (planName && planName !== plan.planName) {
+      const existingPlan = await Plan.findOne({ planName });
+      if (existingPlan) {
+        return res.status(400).json({ 
+          error: `Plan with name '${planName}' already exists` 
+        });
+      }
+    }
+    
+    // Update fields
+    if (planName) plan.planName = planName;
+    if (viewsAllowed !== undefined) plan.viewsAllowed = viewsAllowed;
+    if (description !== undefined) plan.description = description;
+    if (planType) plan.planType = planType;
+    if (duration !== undefined) plan.duration = duration;
+    
+    if (price) {
+      if (price.amount !== undefined) plan.price.amount = price.amount;
+      if (price.currency) plan.price.currency = price.currency;
+    }
+    
+    await plan.save();
+    
+    return res.status(200).json({
+      message: 'Plan updated successfully',
+      plan
+    });
+    
+  } catch (error) {
+    console.error('Error in updatePlan:', error);
+    return res.status(500).json({ 
+      error: 'Server error while updating plan',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Delete Plan
+ */
+export const deletePlan = async (req, res) => {
+  try {
+    const { planId } = req.params;
+    
+    const plan = await Plan.findById(planId);
+    
+    if (!plan) {
+      return res.status(404).json({ error: 'Plan not found' });
+    }
+    
+    // Check if plan has active subscriptions
+    const activeSubscriptions = await Subscription.countDocuments({
+      planId: plan._id,
+      status: 'active'
+    });
+    
+    if (activeSubscriptions > 0) {
+      return res.status(400).json({ 
+        error: `Cannot delete plan with ${activeSubscriptions} active subscriptions`,
+        activeSubscriptions 
+      });
+    }
+    
+    // Delete the plan
+    await Plan.findByIdAndDelete(planId);
+    
+    return res.status(200).json({
+      message: 'Plan deleted successfully',
+      deletedPlan: {
+        id: plan._id,
+        planName: plan.planName,
+        price: plan.price.amount
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in deletePlan:', error);
+    return res.status(500).json({ 
+      error: 'Server error while deleting plan',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get Plan Purchase History
+ */
+export const getPlanPurchaseHistory = async (req, res) => {
+  try {
+    const { planId } = req.params;
+    const { page = 1, limit = 20, status } = req.query;
+    
+    let query = { planId };
+    
+    if (status) {
+      query.status = status.toUpperCase();
+    }
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const purchases = await Payment.find(query)
+      .populate('userId', 'name email')
+      .populate('planId', 'planName price')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const totalPurchases = await Payment.countDocuments(query);
+    
+    return res.status(200).json({
+      purchases,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalPurchases / parseInt(limit)),
+      totalPurchases
+    });
+    
+  } catch (error) {
+    console.error('Error in getPlanPurchaseHistory:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching purchase history',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get All Purchase History (All Plans)
+ */
+export const getAllPurchaseHistory = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status, planId } = req.query;
+    
+    let query = {};
+    
+    if (status) {
+      query.status = status.toUpperCase();
+    }
+    
+    if (planId) {
+      query.planId = planId;
+    }
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const purchases = await Payment.find(query)
+      .populate('userId', 'name email')
+      .populate('planId', 'planName price')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const totalPurchases = await Payment.countDocuments(query);
+    
+    const totalRevenue = await Payment.aggregate([
+      { $match: { status: 'SUCCESS', ...query } },
+      { $group: { _id: null, total: { $sum: '$price.amount' } } }
+    ]);
+    
+    return res.status(200).json({
+      purchases,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(totalPurchases / parseInt(limit)),
+      totalPurchases,
+      totalRevenue: totalRevenue[0]?.total || 0
+    });
+    
+  } catch (error) {
+    console.error('Error in getAllPurchaseHistory:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching purchase history',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get Most Popular Plans Analytics
+ */
+export const getMostPopularPlans = async (req, res) => {
+  try {
+    // Get all plans with purchase stats
+    const plansAnalytics = await Payment.aggregate([
+      { $match: { status: 'SUCCESS' } },
+      {
+        $group: {
+          _id: '$planId',
+          totalPurchases: { $sum: 1 },
+          totalRevenue: { $sum: '$price.amount' },
+          lastPurchase: { $max: '$createdAt' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'plans',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'planDetails'
+        }
+      },
+      { $unwind: '$planDetails' },
+      {
+        $lookup: {
+          from: 'subscriptions',
+          let: { planId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$planId', '$$planId'] } } },
+            {
+              $group: {
+                _id: null,
+                active: {
+                  $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] }
+                },
+                expired: {
+                  $sum: { $cond: [{ $eq: ['$status', 'expired'] }, 1, 0] }
+                }
+              }
+            }
+          ],
+          as: 'subscriptionStats'
+        }
+      },
+      {
+        $project: {
+          planId: '$_id',
+          planName: '$planDetails.planName',
+          price: '$planDetails.price',
+          totalPurchases: 1,
+          totalRevenue: 1,
+          lastPurchase: 1,
+          activeSubscriptions: { 
+            $ifNull: [{ $arrayElemAt: ['$subscriptionStats.active', 0] }, 0] 
+          },
+          expiredSubscriptions: { 
+            $ifNull: [{ $arrayElemAt: ['$subscriptionStats.expired', 0] }, 0] 
+          }
+        }
+      },
+      { $sort: { totalPurchases: -1 } }
+    ]);
+    
+    // Calculate conversion rate and popularity score
+    const totalUsers = await Client.countDocuments();
+    
+    const analyticsWithMetrics = plansAnalytics.map(plan => ({
+      ...plan,
+      conversionRate: totalUsers > 0 ? ((plan.totalPurchases / totalUsers) * 100).toFixed(2) : 0,
+      popularityScore: (plan.totalPurchases * 0.5) + (plan.activeSubscriptions * 0.3) + (plan.totalRevenue / 1000 * 0.2)
+    }));
+    
+    // Sort by popularity score
+    analyticsWithMetrics.sort((a, b) => b.popularityScore - a.popularityScore);
+    
+    return res.status(200).json({
+      popularPlans: analyticsWithMetrics,
+      totalPlans: analyticsWithMetrics.length
+    });
+    
+  } catch (error) {
+    console.error('Error in getMostPopularPlans:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching popular plans analytics',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get Plan Revenue Analytics
+ */
+export const getPlanRevenueAnalytics = async (req, res) => {
+  try {
+    const { timeframe = 'month' } = req.query; // day, week, month, year
+    
+    let dateFilter = new Date();
+    
+    switch(timeframe) {
+      case 'day':
+        dateFilter.setDate(dateFilter.getDate() - 1);
+        break;
+      case 'week':
+        dateFilter.setDate(dateFilter.getDate() - 7);
+        break;
+      case 'month':
+        dateFilter.setMonth(dateFilter.getMonth() - 1);
+        break;
+      case 'year':
+        dateFilter.setFullYear(dateFilter.getFullYear() - 1);
+        break;
+      default:
+        dateFilter.setMonth(dateFilter.getMonth() - 1);
+    }
+    
+    const revenueByPlan = await Payment.aggregate([
+      { 
+        $match: { 
+          status: 'SUCCESS',
+          createdAt: { $gte: dateFilter }
+        } 
+      },
+      {
+        $group: {
+          _id: '$planId',
+          revenue: { $sum: '$price.amount' },
+          purchases: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: 'plans',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'planDetails'
+        }
+      },
+      { $unwind: '$planDetails' },
+      {
+        $project: {
+          planName: '$planDetails.planName',
+          revenue: 1,
+          purchases: 1
+        }
+      },
+      { $sort: { revenue: -1 } }
+    ]);
+    
+    const totalRevenue = revenueByPlan.reduce((sum, plan) => sum + plan.revenue, 0);
+    const totalPurchases = revenueByPlan.reduce((sum, plan) => sum + plan.purchases, 0);
+    
+    return res.status(200).json({
+      timeframe,
+      revenueByPlan,
+      totalRevenue,
+      totalPurchases,
+      averageOrderValue: totalPurchases > 0 ? (totalRevenue / totalPurchases).toFixed(2) : 0
+    });
+    
+  } catch (error) {
+    console.error('Error in getPlanRevenueAnalytics:', error);
     return res.status(500).json({ 
       error: 'Server error while fetching revenue analytics',
       details: error.message 

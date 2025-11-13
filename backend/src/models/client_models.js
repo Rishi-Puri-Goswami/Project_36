@@ -8,6 +8,8 @@ const ClientSchema = new mongoose.Schema({
   role: { type: String, default: "Client", required: true },
   phone:{ type: String, unique: true, required: true },
   address: String,
+  status: { type: String, enum: ['active', 'blocked'], default: 'active' },
+  blockReason: String,
   // 📍 Geolocation for nearby search (30km radius)
   coordinates: {
     latitude: { type: Number, default: null },

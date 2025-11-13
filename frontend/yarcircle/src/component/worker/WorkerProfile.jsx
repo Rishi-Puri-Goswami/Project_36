@@ -11,6 +11,12 @@ const WorkerProfile = () => {
   const [isEditing, setIsEditing] = useState(false)
   const [posts, setPosts] = useState([])
   const [showCreatePost, setShowCreatePost] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false)
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState(null)
+  const [postImages, setPostImages] = useState([])
+  const [postImagePreviews, setPostImagePreviews] = useState([])
   const [newPost, setNewPost] = useState({
     title: '',
     description: '',
@@ -130,19 +136,26 @@ const WorkerProfile = () => {
     try {
       const token = localStorage.getItem('workerToken')
       
-      const headers = {
-        'Content-Type': 'application/json'
-      }
+      // Create FormData to handle file uploads
+      const formData = new FormData()
+      formData.append('title', newPost.title)
+      formData.append('description', newPost.description)
+      formData.append('skills', newPost.skills || '')
+      formData.append('availability', newPost.availability || '')
+      formData.append('expectedSalary', newPost.expectedSalary || '')
       
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
+      // Append all selected images
+      postImages.forEach((image) => {
+        formData.append('postImages', image)
+      })
 
       const response = await fetch(`${API_URL}/workers/create-post`, {
         method: 'POST',
         credentials: 'include',
-        headers: headers,
-        body: JSON.stringify(newPost)
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
       })
 
       const data = await response.json()
@@ -157,6 +170,8 @@ const WorkerProfile = () => {
           availability: '',
           expectedSalary: ''
         })
+        setPostImages([])
+        setPostImagePreviews([])
         fetchWorkerPosts() // Refresh posts list
         
         setTimeout(() => {
@@ -213,6 +228,129 @@ const WorkerProfile = () => {
   const handleLogout = () => {
     clearWorkerToken()
     navigate('/')
+  }
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file')
+        return
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB')
+        return
+      }
+
+      setSelectedFile(file)
+      
+      // Create preview URL
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result)
+      }
+      reader.readAsDataURL(file)
+      
+      setShowPhotoUploadModal(true)
+    }
+  }
+
+  const handleUploadPhoto = async () => {
+    if (!selectedFile) return
+
+    setUploadingPhoto(true)
+    try {
+      const token = localStorage.getItem('workerToken')
+      const formData = new FormData()
+      formData.append('profilePicture', selectedFile)
+
+      const response = await fetch(`${API_URL}/workers/upload-profile-picture`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setWorker(data.worker)
+        setShowPhotoUploadModal(false)
+        setSelectedFile(null)
+        setPreviewUrl(null)
+        setMessage({ type: 'success', text: '✅ Profile picture updated successfully!' })
+        
+        // Clear message after 3 seconds
+        setTimeout(() => {
+          setMessage({ type: '', text: '' })
+        }, 3000)
+      } else {
+        const errorData = await response.json()
+        setMessage({ type: 'error', text: `❌ ${errorData.error || 'Failed to upload profile picture'}` })
+      }
+    } catch (error) {
+      console.error('Error uploading profile picture:', error)
+      setMessage({ type: 'error', text: '❌ Error uploading profile picture' })
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const cancelPhotoUpload = () => {
+    setShowPhotoUploadModal(false)
+    setSelectedFile(null)
+    setPreviewUrl(null)
+  }
+
+  const handlePostImageSelect = (event) => {
+    const files = Array.from(event.target.files)
+    
+    if (files.length === 0) return
+    
+    // Validate max 5 images
+    if (files.length > 5) {
+      alert('You can upload maximum 5 images per post')
+      return
+    }
+    
+    // Validate file types and sizes
+    const validFiles = []
+    const previews = []
+    
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        alert(`${file.name} is not an image file`)
+        continue
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`${file.name} is larger than 5MB`)
+        continue
+      }
+      
+      validFiles.push(file)
+      
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        previews.push(reader.result)
+        if (previews.length === validFiles.length) {
+          setPostImagePreviews(previews)
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+    
+    setPostImages(validFiles)
+  }
+
+  const removePostImage = (index) => {
+    setPostImages(prev => prev.filter((_, i) => i !== index))
+    setPostImagePreviews(prev => prev.filter((_, i) => i !== index))
   }
 
   const handleEditClick = () => {
@@ -352,7 +490,7 @@ const WorkerProfile = () => {
           <div className="px-8 pb-8">
             <div className="flex items-end gap-6 -mt-16 mb-6">
               {/* Profile Picture */}
-              <div className="relative">
+              <div className="relative group">
                 <div className="w-32 h-32 rounded-full bg-white p-2 shadow-lg">
                   {worker?.profilePicture ? (
                     <img 
@@ -366,7 +504,23 @@ const WorkerProfile = () => {
                     </div>
                   )}
                 </div>
-                <div className="absolute bottom-3 right-3 w-6 h-6 bg-green-500 border-4 border-white rounded-full"></div>
+                {/* Camera Icon Overlay */}
+                <label 
+                  htmlFor="worker-profile-photo-upload"
+                  className="absolute bottom-3 right-3 bg-green-600 hover:bg-green-700 text-white rounded-full p-2 shadow-lg cursor-pointer transition-all transform hover:scale-110"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <input
+                    id="worker-profile-photo-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </label>
               </div>
               
               {/* Name and Work Type */}
@@ -693,6 +847,57 @@ const WorkerProfile = () => {
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                         />
                       </div>
+                      
+                      {/* Image Upload Section */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Post Images (Optional - Max 5)
+                        </label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-green-500 transition-colors">
+                          <input
+                            type="file"
+                            id="post-images"
+                            accept="image/*"
+                            multiple
+                            onChange={handlePostImageSelect}
+                            className="hidden"
+                          />
+                          <label
+                            htmlFor="post-images"
+                            className="cursor-pointer flex flex-col items-center"
+                          >
+                            <svg className="w-12 h-12 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-sm text-gray-600">Click to upload images</p>
+                            <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB each</p>
+                          </label>
+                        </div>
+                        
+                        {/* Image Previews */}
+                        {postImagePreviews.length > 0 && (
+                          <div className="mt-4 grid grid-cols-3 md:grid-cols-5 gap-3">
+                            {postImagePreviews.map((preview, index) => (
+                              <div key={index} className="relative group">
+                                <img
+                                  src={preview}
+                                  alt={`Preview ${index + 1}`}
+                                  className="w-full h-24 object-cover rounded-lg border-2 border-gray-200"
+                                />
+                                <button
+                                  onClick={() => removePostImage(index)}
+                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
                       <div className="flex gap-3 pt-2">
                         <button
                           onClick={handleCreatePost}
@@ -711,6 +916,8 @@ const WorkerProfile = () => {
                               availability: '',
                               expectedSalary: ''
                             })
+                            setPostImages([])
+                            setPostImagePreviews([])
                           }}
                           className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                         >
@@ -740,6 +947,38 @@ const WorkerProfile = () => {
                             </svg>
                           </button>
                         </div>
+                        
+                        {/* Post Images */}
+                        {post.images && post.images.length > 0 && (
+                          <div className="mb-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                              {post.images.map((imageUrl, index) => (
+                                <div key={index} className="relative group aspect-square rounded-lg overflow-hidden bg-gray-100">
+                                  <img
+                                    src={imageUrl}
+                                    alt={`Post image ${index + 1}`}
+                                    className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
+                                    onClick={() => window.open(imageUrl, '_blank')}
+                                  />
+                                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
+                                    <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {post.images.length > 1 && (
+                              <p className="text-xs text-gray-500 mt-2">
+                                <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                {post.images.length} images • Click to view full size
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        
                         <div className="grid md:grid-cols-3 gap-3 text-sm">
                           {post.skills && (
                             <div className="flex items-center gap-2">
@@ -937,6 +1176,78 @@ const WorkerProfile = () => {
           </div>
         </div>
       </main>
+
+      {/* Photo Upload Modal */}
+      {showPhotoUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-t-2xl">
+              <h2 className="text-2xl font-bold">Upload Profile Picture</h2>
+              <p className="text-green-100 text-sm mt-1">Choose your best photo</p>
+            </div>
+
+            <div className="p-6">
+              {/* Preview */}
+              {previewUrl && (
+                <div className="mb-6 flex justify-center">
+                  <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-green-500 shadow-lg">
+                    <img 
+                      src={previewUrl} 
+                      alt="Preview" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* File Info */}
+              {selectedFile && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold">File:</span> {selectedFile.name}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold">Size:</span> {(selectedFile.size / 1024).toFixed(2)} KB
+                  </p>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex gap-4">
+                <button
+                  onClick={cancelPhotoUpload}
+                  disabled={uploadingPhoto}
+                  className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUploadPhoto}
+                  disabled={uploadingPhoto}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {uploadingPhoto ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      Upload
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

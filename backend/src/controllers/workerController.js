@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import { sendOtpSms } from "../utils/smsService.js";
 import { Subscription } from "../models/subscription_model.js";
 import { Plan } from "../models/planes_model.js";
+import imagekit from "../config/imagekit.js";
 
 // ============= AUTHENTICATION APIs =============
 
@@ -437,11 +438,30 @@ export const createWorkerPost = async (req, res) => {
       return res.status(400).json({ message: "Title and description are required", status: 400 });
     }
 
+    // Handle multiple image uploads
+    const imageUrls = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        try {
+          const uploadResponse = await imagekit.upload({
+            file: file.buffer.toString('base64'),
+            fileName: `worker_post_${workerId}_${Date.now()}_${Math.random().toString(36).substring(7)}.${file.mimetype.split('/')[1]}`,
+            folder: '/worker_posts',
+            useUniqueFileName: true
+          });
+          imageUrls.push(uploadResponse.url);
+        } catch (uploadError) {
+          console.error("Error uploading image to ImageKit:", uploadError);
+        }
+      }
+    }
+
     // Create new post
     const newPost = new WorkerPost({
       worker: workerId,
       title,
       description,
+      images: imageUrls,
       skills,
       availability,
       expectedSalary
@@ -576,6 +596,44 @@ export const updateWorkerLocation = async (req, res) => {
   } catch (error) {
     console.error("Error updating worker location:", error);
     return res.status(500).json({ error: "Server error" });
+  }
+};
+
+// 📸 Upload Worker Profile Picture using ImageKit
+export const uploadWorkerProfilePicture = async (req, res) => {
+  try {
+    const workerId = req.worker._id;
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Upload to ImageKit
+    const uploadResponse = await imagekit.upload({
+      file: req.file.buffer.toString('base64'),
+      fileName: `worker_${workerId}_${Date.now()}.${req.file.mimetype.split('/')[1]}`,
+      folder: '/profile_pictures/workers',
+      useUniqueFileName: true
+    });
+
+    // Update worker profile picture URL in database
+    const worker = await Worker.findByIdAndUpdate(
+      workerId,
+      { profilePicture: uploadResponse.url },
+      { new: true }
+    ).select('-password -otp');
+
+    console.log(`📸 Worker ${worker.name} profile picture updated`);
+
+    return res.status(200).json({
+      message: "Profile picture uploaded successfully",
+      profilePicture: uploadResponse.url,
+      worker: worker
+    });
+
+  } catch (error) {
+    console.error("Error uploading worker profile picture:", error);
+    return res.status(500).json({ error: "Failed to upload profile picture" });
   }
 };
 

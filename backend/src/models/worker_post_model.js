@@ -14,6 +14,10 @@ const workerPostSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
+  images: {
+    type: [String],
+    default: []
+  },
   skills: String,
   availability: String,
   expectedSalary: String,
@@ -25,3 +29,5 @@ const workerPostSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 export const WorkerPost = mongoose.model("WorkerPost", workerPostSchema);
+
+
