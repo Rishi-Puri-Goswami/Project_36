@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Search, MapPin, Briefcase, X, Lock, Unlock, Star, Clock, DollarSign, Image as ImageIcon } from 'lucide-react';
+import { Search, MapPin, Briefcase, X, Lock, Unlock, Star, Clock, DollarSign, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 import axios from 'axios';
 import { API_URL } from '../../config/api';
+import { useNavigate } from 'react-router-dom';
 
 const WorkerPostSearch = () => {
+  const navigate = useNavigate();
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -138,9 +140,20 @@ const WorkerPostSearch = () => {
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Worker Posts</h1>
-              <p className="text-gray-600 mt-1">Browse worker profiles and their project posts</p>
+            <div className="flex items-center gap-4">
+              {/* Back Button */}
+              <button
+                onClick={() => navigate('/client/dashboard')}
+                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="h-5 w-5" />
+                <span className="font-medium">Back</span>
+              </button>
+              
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Worker Posts</h1>
+                <p className="text-gray-600 mt-1">Browse worker profiles and their project posts</p>
+              </div>
             </div>
             <div className="bg-blue-50 px-6 py-3 rounded-lg">
               <p className="text-sm text-gray-600">Credits Remaining</p>
