@@ -20,6 +20,9 @@ const SubscriptionSchema = new mongoose.Schema({
     unlockedAt: { type: Date, default: Date.now },
     expiresAt: { type: Date } // 24 hours from unlockedAt
   }],
+
+  // 📸 Track viewed worker posts (to avoid charging twice for same post)
+  viewedWorkerPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: "WorkerPost" }],
   
   startDate: { type: Date, default: Date.now },
   expiryDate: { type: Date }, // Only for time-based plans

@@ -4,7 +4,199 @@ import { Payment } from "../models/payment_model.js";
 import { Plan } from "../models/planes_model.js";
 import { Client } from "../models/client_models.js";
 import { Subscription } from "../models/subscription_model.js";
+import { Admin } from "../models/admin_model.js";
+import { WorkerPost } from "../models/worker_post_model.js";
 import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
+
+// ==================== ADMIN AUTHENTICATION ====================
+
+/**
+ * Admin Login with Secret Key
+ * POST /api/admin/auth/login
+ * Body: { email, secretKey }
+ */
+export const adminLogin = async (req, res) => {
+  try {
+    const { email, secretKey } = req.body;
+
+    // Validate input
+    if (!email || !secretKey) {
+      return res.status(400).json({ 
+        error: 'Email and secret key are required' 
+      });
+    }
+
+    // Find admin by email and secretKey
+    const admin = await Admin.findOne({ email, secretKey });
+
+    if (!admin) {
+      return res.status(401).json({ 
+        error: 'Invalid credentials' 
+      });
+    }
+
+    // Check if admin is active
+    if (!admin.isActive) {
+      return res.status(403).json({ 
+        error: 'Account is deactivated. Contact super admin.' 
+      });
+    }
+
+    // Update last login
+    admin.lastLogin = new Date();
+    await admin.save();
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        id: admin._id, 
+        email: admin.email,
+        role: admin.role 
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Return success with token
+    return res.status(200).json({
+      message: 'Login successful',
+      token,
+      admin: {
+        id: admin._id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+        lastLogin: admin.lastLogin
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in adminLogin:', error);
+    return res.status(500).json({ 
+      error: 'Server error during login',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get Current Admin Profile
+ * GET /api/admin/auth/me
+ * Requires: Admin Auth Token
+ */
+export const getAdminProfile = async (req, res) => {
+  try {
+    const adminId = req.admin.id;
+
+    const admin = await Admin.findById(adminId).select('-secretKey');
+
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    return res.status(200).json({
+      message: 'Profile fetched successfully',
+      admin
+    });
+
+  } catch (error) {
+    console.error('Error in getAdminProfile:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching profile',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Create New Admin (Super Admin Only)
+ * POST /api/admin/auth/create-admin
+ * Body: { name, email, secretKey, role }
+ */
+export const createAdmin = async (req, res) => {
+  try {
+    const { name, email, secretKey, role } = req.body;
+
+    // Only super-admin can create new admins
+    if (req.admin.role !== 'super-admin') {
+      return res.status(403).json({ 
+        error: 'Only super admin can create new admins' 
+      });
+    }
+
+    // Validate input
+    if (!name || !email || !secretKey) {
+      return res.status(400).json({ 
+        error: 'Name, email and secret key are required' 
+      });
+    }
+
+    // Check if admin already exists
+    const existingAdmin = await Admin.findOne({ 
+      $or: [{ email }, { secretKey }] 
+    });
+
+    if (existingAdmin) {
+      return res.status(400).json({ 
+        error: 'Admin with this email or secret key already exists' 
+      });
+    }
+
+    // Create new admin
+    const newAdmin = new Admin({
+      name,
+      email,
+      secretKey,
+      role: role || 'admin',
+      createdBy: req.admin.id
+    });
+
+    await newAdmin.save();
+
+    return res.status(201).json({
+      message: 'Admin created successfully',
+      admin: {
+        id: newAdmin._id,
+        name: newAdmin.name,
+        email: newAdmin.email,
+        role: newAdmin.role
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in createAdmin:', error);
+    return res.status(500).json({ 
+      error: 'Server error while creating admin',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Verify Admin Token (for protected routes)
+ * GET /api/admin/auth/verify
+ */
+export const verifyAdminToken = async (req, res) => {
+  try {
+    return res.status(200).json({
+      message: 'Token is valid',
+      admin: {
+        id: req.admin.id,
+        email: req.admin.email,
+        role: req.admin.role
+      }
+    });
+  } catch (error) {
+    console.error('Error in verifyAdminToken:', error);
+    return res.status(500).json({ 
+      error: 'Server error while verifying token',
+      details: error.message 
+    });
+  }
+};
+
+// ==================== ORIGINAL ADMIN CONTROLLER FUNCTIONS ====================
 
 export const listPendingWorkers = async (req, res) => {
   try {
@@ -1969,6 +2161,165 @@ export const getPlanRevenueAnalytics = async (req, res) => {
     console.error('Error in getPlanRevenueAnalytics:', error);
     return res.status(500).json({ 
       error: 'Server error while fetching revenue analytics',
+      details: error.message 
+    });
+  }
+};
+
+// ==================== WORKER POST MANAGEMENT ====================
+
+/**
+ * Get All Worker Posts (with Search & Filter)
+ */
+export const getAllWorkerPosts = async (req, res) => {
+  try {
+    const { search, status, page = 1, limit = 10 } = req.query;
+    
+    let query = {};
+    
+    // Search by title, description, skills
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { skills: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Filter by status (active/inactive)
+    if (status) {
+      query.status = status;
+    }
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const posts = await WorkerPost.find(query)
+      .populate('worker', 'name email phone workType location profilePicture')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+    
+    const total = await WorkerPost.countDocuments(query);
+    
+    return res.status(200).json({
+      message: 'Worker posts fetched successfully',
+      posts,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in getAllWorkerPosts:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching worker posts',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Get Worker Post Details
+ */
+export const getWorkerPostDetails = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    
+    const post = await WorkerPost.findById(postId)
+      .populate('worker', 'name email phone workType location profilePicture experience rating')
+      .lean();
+    
+    if (!post) {
+      return res.status(404).json({ error: 'Worker post not found' });
+    }
+    
+    return res.status(200).json({
+      message: 'Worker post details fetched successfully',
+      post
+    });
+    
+  } catch (error) {
+    console.error('Error in getWorkerPostDetails:', error);
+    return res.status(500).json({ 
+      error: 'Server error while fetching post details',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Block/Unblock Worker Post
+ */
+export const toggleWorkerPostStatus = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { status } = req.body; // 'active' or 'inactive'
+    
+    if (!status || !['active', 'inactive'].includes(status)) {
+      return res.status(400).json({ 
+        error: 'Invalid status. Must be "active" or "inactive"' 
+      });
+    }
+    
+    const post = await WorkerPost.findByIdAndUpdate(
+      postId,
+      { status },
+      { new: true }
+    ).populate('worker', 'name email');
+    
+    if (!post) {
+      return res.status(404).json({ error: 'Worker post not found' });
+    }
+    
+    return res.status(200).json({
+      message: `Worker post ${status === 'inactive' ? 'blocked' : 'unblocked'} successfully`,
+      post
+    });
+    
+  } catch (error) {
+    console.error('Error in toggleWorkerPostStatus:', error);
+    return res.status(500).json({ 
+      error: 'Server error while updating post status',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Delete Worker Post
+ */
+export const deleteWorkerPostAdmin = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    
+    const post = await WorkerPost.findById(postId)
+      .populate('worker', 'name email');
+    
+    if (!post) {
+      return res.status(404).json({ error: 'Worker post not found' });
+    }
+    
+    // Delete the post
+    await WorkerPost.findByIdAndDelete(postId);
+    
+    return res.status(200).json({
+      message: 'Worker post deleted successfully',
+      deletedPost: {
+        id: post._id,
+        title: post.title,
+        workerName: post.worker?.name,
+        workerEmail: post.worker?.email
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in deleteWorkerPostAdmin:', error);
+    return res.status(500).json({ 
+      error: 'Server error while deleting worker post',
       details: error.message 
     });
   }

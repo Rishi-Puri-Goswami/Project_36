@@ -1174,6 +1174,279 @@ export const getAllAvailableWorkers = async (req, res) => {
   }
 };
 
+/**
+ * 🔍 Search Workers with Their Posts
+ * Returns workers along with their posts (limited preview)
+ * Shows worker profile + list of posts (title, preview images only)
+ * Client must unlock each post to see full details
+ */
+export const searchWorkersWithPosts = async (req, res) => {
+  try {
+    const { workType, location, search, latitude, longitude, radius = 30 } = req.query;
+    const clientId = req.clint?._id; // Optional - get if authenticated
+
+    // Build filter query for workers
+    const filter = { 
+      accountStatus: 'active', // Only show active workers (not blocked)
+      status: 'approved' // Only show approved workers
+    };
+
+    if (workType && workType !== 'all' && workType.trim() !== '') {
+      filter.workType = { $regex: workType, $options: 'i' };
+    }
+
+    if (location && location.trim() !== '') {
+      filter.location = { $regex: location, $options: 'i' };
+    }
+
+    if (search && search.trim() !== '') {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { workType: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } },
+        { skills: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Fetch workers
+    let workers = await Worker.find(filter)
+      .select('name workType location skills bio profilePicture yearsOfExperience age coordinates')
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    console.log(`📋 Found ${workers.length} workers matching criteria`);
+
+    // Get client's viewed posts (if authenticated)
+    let viewedPostIds = [];
+    if (clientId) {
+      const subscription = await Subscription.findOne({
+        userId: clientId,
+        userType: 'Client'
+      });
+      viewedPostIds = subscription?.viewedWorkerPosts?.map(id => id.toString()) || [];
+      console.log(`🔓 Client has unlocked ${viewedPostIds.length} posts`);
+    }
+
+    // Fetch posts for each worker
+    const workersWithPosts = await Promise.all(
+      workers.map(async (worker) => {
+        // Get active worker posts (max 10 recent posts)
+        const posts = await WorkerPost.find({ 
+          worker: worker._id, 
+          status: 'active' 
+        })
+          .select('title description images skills availability expectedSalary createdAt')
+          .sort({ createdAt: -1 })
+          .limit(10);
+
+        // Mark which posts client has already viewed (unlocked)
+        const postsWithUnlockStatus = posts.map(post => {
+          const isUnlocked = viewedPostIds.includes(post._id.toString());
+          
+          return {
+            _id: post._id,
+            title: post.title,
+            // Show limited preview for locked posts
+            description: isUnlocked ? post.description : post.description.substring(0, 100) + '...',
+            previewImage: post.images[0] || null, // First image only for preview
+            imageCount: post.images.length,
+            skills: post.skills,
+            availability: post.availability,
+            expectedSalary: post.expectedSalary,
+            createdAt: post.createdAt,
+            isUnlocked: isUnlocked,
+            // Only show full images if unlocked
+            images: isUnlocked ? post.images : []
+          };
+        });
+
+        return {
+          worker: {
+            _id: worker._id,
+            name: worker.name,
+            workType: worker.workType,
+            location: worker.location,
+            skills: worker.skills,
+            bio: worker.bio,
+            profilePicture: worker.profilePicture,
+            yearsOfExperience: worker.yearsOfExperience,
+            age: worker.age,
+            coordinates: worker.coordinates
+          },
+          posts: postsWithUnlockStatus,
+          postCount: postsWithUnlockStatus.length
+        };
+      })
+    );
+
+    // Filter by distance if coordinates provided
+    let filteredWorkers = workersWithPosts;
+    if (latitude && longitude) {
+      const userLat = parseFloat(latitude);
+      const userLon = parseFloat(longitude);
+      const maxDistance = parseFloat(radius);
+
+      filteredWorkers = workersWithPosts.filter(item => {
+        const coords = item.worker.coordinates;
+        if (!coords || !coords.latitude || !coords.longitude) {
+          return false;
+        }
+
+        const distance = calculateDistance(
+          userLat,
+          userLon,
+          coords.latitude,
+          coords.longitude
+        );
+
+        item.distance = Math.round(distance * 10) / 10;
+        return distance <= maxDistance;
+      });
+
+      // Sort by distance
+      filteredWorkers.sort((a, b) => a.distance - b.distance);
+    }
+
+    // Only return workers who have at least one post
+    const workersWithActivePosts = filteredWorkers.filter(item => item.postCount > 0);
+
+    console.log(`📸 Returning ${workersWithActivePosts.length} workers with active posts`);
+
+    return res.status(200).json({
+      message: "Workers with posts fetched successfully",
+      workers: workersWithActivePosts,
+      total: workersWithActivePosts.length,
+      ...(latitude && longitude && { searchRadius: `${radius}km` })
+    });
+
+  } catch (error) {
+    console.error("Error in searchWorkersWithPosts:", error);
+    return res.status(500).json({ error: "Server error in fetching workers with posts" });
+  }
+};
+
+/**
+ * 🔓 Unlock Worker Post - Deduct 1 Credit to View Full Post Details
+ * When client clicks "View Full Post", this endpoint:
+ * 1. Checks if post is already unlocked (free access)
+ * 2. If not unlocked, deducts 1 credit
+ * 3. Returns full post details (all images, full description)
+ */
+export const unlockWorkerPost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const clientId = req.clint._id;
+
+    // Validate post exists
+    const post = await WorkerPost.findById(postId).populate('worker', 'name email phone workType location skills bio profilePicture yearsOfExperience age');
+    if (!post) {
+      return res.status(404).json({ error: 'Worker post not found' });
+    }
+
+    if (post.status !== 'active') {
+      return res.status(403).json({ error: 'This post is not active' });
+    }
+
+    // Get client's active subscription
+    const subscription = await Subscription.findOne({
+      userId: clientId,
+      userType: 'Client',
+      status: 'active'
+    });
+
+    if (!subscription) {
+      return res.status(403).json({
+        error: 'No active subscription found',
+        message: 'Please purchase a plan to view worker posts'
+      });
+    }
+
+    // Check if post is already unlocked
+    const alreadyViewed = subscription.viewedWorkerPosts?.some(
+      id => id.toString() === postId.toString()
+    );
+
+    if (alreadyViewed) {
+      // Post already unlocked - return full details without deducting credit
+      return res.status(200).json({
+        success: true,
+        message: 'Worker post already unlocked',
+        alreadyUnlocked: true,
+        post: {
+          _id: post._id,
+          title: post.title,
+          description: post.description,
+          images: post.images,
+          skills: post.skills,
+          availability: post.availability,
+          expectedSalary: post.expectedSalary,
+          createdAt: post.createdAt,
+          worker: post.worker
+        },
+        subscription: {
+          viewsAllowed: subscription.viewsAllowed,
+          viewsUsed: subscription.viewsUsed,
+          creditsRemaining: subscription.viewsAllowed - subscription.viewsUsed
+        }
+      });
+    }
+
+    // Check if client has enough credits
+    const creditsRemaining = subscription.viewsAllowed - subscription.viewsUsed;
+    if (creditsRemaining <= 0) {
+      return res.status(403).json({
+        error: 'Insufficient credits',
+        message: 'You have no credits left. Please purchase more credits to view worker posts.',
+        creditsRemaining: 0
+      });
+    }
+
+    // Deduct 1 credit
+    subscription.viewsUsed += 1;
+
+    // Add post to viewedWorkerPosts
+    if (!subscription.viewedWorkerPosts) {
+      subscription.viewedWorkerPosts = [];
+    }
+    subscription.viewedWorkerPosts.push(postId);
+
+    // Also add worker to viewedWorkers if not already there
+    if (!subscription.viewedWorkers.includes(post.worker._id)) {
+      subscription.viewedWorkers.push(post.worker._id);
+    }
+
+    await subscription.save();
+
+    console.log(`🔓 Client ${clientId} unlocked worker post ${postId} - Credit deducted`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Worker post unlocked successfully! 1 credit deducted.',
+      creditDeducted: true,
+      post: {
+        _id: post._id,
+        title: post.title,
+        description: post.description,
+        images: post.images,
+        skills: post.skills,
+        availability: post.availability,
+        expectedSalary: post.expectedSalary,
+        createdAt: post.createdAt,
+        worker: post.worker
+      },
+      subscription: {
+        viewsAllowed: subscription.viewsAllowed,
+        viewsUsed: subscription.viewsUsed,
+        creditsRemaining: subscription.viewsAllowed - subscription.viewsUsed
+      }
+    });
+
+  } catch (err) {
+    console.error('Error in unlockWorkerPost:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
 // 📍 Helper function: Calculate distance between two coordinates (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; // Earth's radius in kilometers

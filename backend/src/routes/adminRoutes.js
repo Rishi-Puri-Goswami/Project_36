@@ -1,5 +1,11 @@
 import express from "express";
 import { 
+  // Auth
+  adminLogin,
+  getAdminProfile,
+  createAdmin,
+  verifyAdminToken,
+  // Workers
   listPendingWorkers, 
   approveWorker, 
   rejectWorker, 
@@ -27,13 +33,17 @@ import {
   getWorkerApplications,
   verifyWorkerProfile,
   toggleWorkerStatus,
-
   featureWorker,
   unfeatureWorker,
   deleteWorker,
   // Job Posts Management
   getAllJobPosts,
   deleteJobPost,
+  // Worker Posts Management
+  getAllWorkerPosts,
+  getWorkerPostDetails,
+  toggleWorkerPostStatus,
+  deleteWorkerPostAdmin,
   // Subscription & Plans Management
   getAllPlans,
   getPlanDetails,
@@ -46,8 +56,21 @@ import {
   blockWorker,
   unblockWorker
 } from "../controllers/adminController.js";
+import { adminAuth, superAdminOnly } from "../middlewares/admin_middlewares/admin_auth.js";
 
 const adminrouter = express.Router();
+
+// ==================== PUBLIC AUTH ROUTES ====================
+adminrouter.post('/auth/login', adminLogin);
+
+// ==================== PROTECTED ADMIN ROUTES ====================
+// Apply adminAuth middleware to all routes below
+adminrouter.use(adminAuth);
+
+// Auth routes (protected)
+adminrouter.get('/auth/me', getAdminProfile);
+adminrouter.get('/auth/verify', verifyAdminToken);
+adminrouter.post('/auth/create-admin', superAdminOnly, createAdmin);
 
 // Dashboard routes
 adminrouter.get('/dashboard/overview', getDashboardOverview);
@@ -81,6 +104,12 @@ adminrouter.delete('/workers/:workerId', deleteWorker);
 // Job Posts Management routes
 adminrouter.get('/job-posts', getAllJobPosts);
 adminrouter.delete('/job-posts/:postId', deleteJobPost);
+
+// Worker Posts Management routes
+adminrouter.get('/worker-posts', getAllWorkerPosts);
+adminrouter.get('/worker-posts/:postId', getWorkerPostDetails);
+adminrouter.patch('/worker-posts/:postId/status', toggleWorkerPostStatus);
+adminrouter.delete('/worker-posts/:postId', deleteWorkerPostAdmin);
 
 // Subscription & Plans Management routes
 adminrouter.get('/plans', getAllPlans);

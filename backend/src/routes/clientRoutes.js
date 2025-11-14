@@ -21,6 +21,8 @@ import {
   deleteJobPost,
   getAllAvailableJobs,
   getAllAvailableWorkers,
+  searchWorkersWithPosts,
+  unlockWorkerPost,
   getSubscriptionStatus,
   getAllPlans,
   createSubscriptionOrder,
@@ -56,6 +58,12 @@ clientRouter.get('/imagekit-auth', getImageKitAuthParams);
 
 // Worker Search routes (public)
 clientRouter.get('/workers/available', getAllAvailableWorkers); // Public route for clients to search workers
+
+// 🔍 Search Workers with Posts (auth required to see unlock status)
+clientRouter.get('/workers/with-posts', clint_auth, searchWorkersWithPosts); // Returns workers + their posts
+
+// 🔓 Unlock Worker Post - Deduct 1 credit to view full post
+clientRouter.post('/worker-posts/unlock/:postId', clint_auth, unlockWorkerPost);
 
 // Job Post routes (public)
 clientRouter.get('/jobs/available', getAllAvailableJobs); // Public route for workers to see jobs
