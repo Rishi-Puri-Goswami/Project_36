@@ -7,6 +7,9 @@ import { API_URL } from '../../config/api';
 import ClientManagement from './ClientManagement';
 import WorkerManagement from './WorkerManagement';
 import WorkerPostManagement from './WorkerPostManagement';
+import JobPostManagement from './JobPostManagement';
+import PlansManagement from './PlansManagement';
+import AdminSettings from './AdminSettings';
 import {
   LayoutDashboard,
   Users,
@@ -399,27 +402,12 @@ const AdminDashboard = () => {
           {/* Worker Posts Management Section */}
           {activeSection === 'worker-posts' && <WorkerPostManagement />}
 
-          {/* Other sections - placeholders for now */}
-          {activeSection === 'jobs' && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Job Posts Management</h2>
-              <p className="text-gray-500">Job posts management section coming soon...</p>
-            </div>
-          )}
+          {/* Job Posts Management Section */}
+          {activeSection === 'jobs' && <JobPostManagement />}
 
-          {activeSection === 'plans' && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Plans & Subscriptions</h2>
-              <p className="text-gray-500">Plans management section coming soon...</p>
-            </div>
-          )}
+          {activeSection === 'plans' && <PlansManagement />}
 
-          {activeSection === 'settings' && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Settings</h2>
-              <p className="text-gray-500">Settings section coming soon...</p>
-            </div>
-          )}
+          {activeSection === 'settings' && <AdminSettings />}
         </div>
       </main>
 

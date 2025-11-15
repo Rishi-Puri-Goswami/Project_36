@@ -5,6 +5,8 @@ import {
   getAdminProfile,
   createAdmin,
   verifyAdminToken,
+  updateAdminProfile,
+  changeAdminPassword,
   // Workers
   listPendingWorkers, 
   approveWorker, 
@@ -21,6 +23,7 @@ import {
   getClientDetails,
   getClientJobPosts,
   getClientPaymentHistory,
+  getPaymentDetails,
   getClientSubscription,
   toggleClientStatus,
   blockClient,
@@ -39,6 +42,7 @@ import {
   // Job Posts Management
   getAllJobPosts,
   deleteJobPost,
+  toggleJobPostFeatured,
   // Worker Posts Management
   getAllWorkerPosts,
   getWorkerPostDetails,
@@ -71,6 +75,8 @@ adminrouter.use(adminAuth);
 adminrouter.get('/auth/me', getAdminProfile);
 adminrouter.get('/auth/verify', verifyAdminToken);
 adminrouter.post('/auth/create-admin', superAdminOnly, createAdmin);
+adminrouter.put('/auth/profile', updateAdminProfile);
+adminrouter.put('/auth/change-password', changeAdminPassword);
 
 // Dashboard routes
 adminrouter.get('/dashboard/overview', getDashboardOverview);
@@ -82,6 +88,7 @@ adminrouter.get('/clients', getAllClients);
 adminrouter.get('/clients/:clientId', getClientDetails);
 adminrouter.get('/clients/:clientId/jobs', getClientJobPosts);
 adminrouter.get('/clients/:clientId/payments', getClientPaymentHistory);
+adminrouter.get('/payments/:paymentId', getPaymentDetails);
 adminrouter.get('/clients/:clientId/subscription', getClientSubscription);
 adminrouter.patch('/clients/:clientId/status', toggleClientStatus);
 adminrouter.post('/clients/:clientId/block', blockClient);
@@ -102,8 +109,9 @@ adminrouter.post('/workers/:workerId/unfeature', unfeatureWorker);
 adminrouter.delete('/workers/:workerId', deleteWorker);
 
 // Job Posts Management routes
-adminrouter.get('/job-posts', getAllJobPosts);
-adminrouter.delete('/job-posts/:postId', deleteJobPost);
+adminrouter.get('/jobs/all', getAllJobPosts);
+adminrouter.delete('/jobs/:postId', deleteJobPost);
+adminrouter.patch('/jobs/:postId/feature', toggleJobPostFeatured);
 
 // Worker Posts Management routes
 adminrouter.get('/worker-posts', getAllWorkerPosts);

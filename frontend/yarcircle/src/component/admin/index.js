@@ -1,6 +1,9 @@
 export { default as AdminLogin } from './AdminLogin';
 export { default as AdminDashboard } from './AdminDashboard';
 export { default as AdminProtectedRoute } from './AdminProtectedRoute';
+export { default as AdminSettings } from './AdminSettings';
 export { default as ClientManagement } from './ClientManagement';
 export { default as WorkerManagement } from './WorkerManagement';
 export { default as WorkerPostManagement } from './WorkerPostManagement';
+export { default as JobPostManagement } from './JobPostManagement';
+export { default as PlansManagement } from './PlansManagement';

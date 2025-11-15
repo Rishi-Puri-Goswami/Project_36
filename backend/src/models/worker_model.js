@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const workerSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  email: { type: String, unique: true, sparse: true }, // sparse allows multiple nulls
+  email: { type: String, unique: true, sparse: true }, 
   password: String,
   phone: { type: String, unique: true, required: true },
   age: Number,
@@ -15,6 +15,7 @@ const workerSchema = new mongoose.Schema({
     longitude: { type: Number, default: null },
     updatedAt: { type: Date, default: null }
   },
+  pincode: String,
   workPhotos: { type: [String], default: [] },
   idProof: String,
   skills: [String],

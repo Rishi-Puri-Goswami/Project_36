@@ -195,6 +195,9 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
         fetchedWorkers = applySorting(fetchedWorkers)
         
         setWorkers(fetchedWorkers)
+        // console.log('✅ Workers fetched successfully' , fetchedWorkers.map(w => w.profilePicture));
+
+        
         setCurrentPage(1) // Reset to first page when filters change
         
         if (data.searchRadius) {
@@ -554,9 +557,17 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                 
                 {/* Worker Header */}
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                    {worker.name?.charAt(0).toUpperCase() || 'W'}
-                  </div>
+                  {worker?.profilePicture ? (
+                    <img 
+                      src={worker.profilePicture} 
+                      alt={worker.name}
+                      className="w-16 h-16 rounded-full object-cover border-2 border-blue-200"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                      {worker.name?.charAt(0).toUpperCase() || 'W'}
+                    </div>
+                  )}
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-800">{worker.name}</h3>
                     <p className="text-sm text-gray-500">{worker.workType}</p>
@@ -602,33 +613,56 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                     </div>
                   )}
 
-                  {/* Contact Info - Blurred if locked, visible if unlocked */}
-                  <div className={`bg-gray-50 rounded-lg p-3 relative mt-4 ${!isUnlocked ? 'blur-sm' : ''}`}>
+                  {/* Contact Info - Show limited info if locked */}
+                  <div className={`bg-gray-50 rounded-lg p-3 relative mt-4 ${!isUnlocked ? 'border-2 border-blue-200' : 'border-2 border-green-200'}`}>
                     {isUnlocked ? (
-                      // Unlocked - Show real contact info
-                      <div className="space-y-1">
+                      // Unlocked - Show full contact info
+                      <div className="space-y-1.5">
                         <p className="text-sm text-gray-700 flex items-center gap-2">
                           <span className="font-medium">📞</span>
-                          <span>{worker.phoneNumber || '+91 XXXXX XXXXX'}</span>
+                          <span>{worker.phone || '+91 XXXXX XXXXX'}</span>
                         </p>
                         <p className="text-sm text-gray-700 flex items-center gap-2">
                           <span className="font-medium">✉️</span>
                           <span>{worker.email || 'Not provided'}</span>
                         </p>
+                        {worker.pincode && (
+                          <p className="text-sm text-gray-700 flex items-center gap-2">
+                            <span className="font-medium">📍</span>
+                            <span>PIN: {worker.pincode}</span>
+                          </p>
+                        )}
                       </div>
                     ) : (
-                      // Locked - Show placeholder
-                      <div className="select-none">
-                        <p className="text-xs text-gray-500">📞 +91 XXXXX XXXXX</p>
-                        <p className="text-xs text-gray-500 mt-1">✉️ xxxxx@email.com</p>
+                      // Locked - Show first 3 letters of email and pincode
+                      <div className="space-y-1.5">
+                        <p className="text-xs text-gray-500 flex items-center gap-2">
+                          <span className="font-medium">📞</span>
+                          <span>+91 XXXXX XXXXX</span>
+                        </p>
+                        <p className="text-xs text-gray-500 flex items-center gap-2">
+                          <span className="font-medium">✉️</span>
+                          <span>
+                            {worker.email ? `${worker.email.substring(0, 3)}xxxxx@xxxxx.com` : 'xxx@xxxxx.com'}
+                          </span>
+                        </p>
+                        {worker.pincode && (
+                          <p className="text-xs text-gray-600 flex items-center gap-2 font-semibold">
+                            <span className="font-medium">📍</span>
+                            <span>PIN: {worker.pincode}</span>
+                          </p>
+                        )}
                       </div>
                     )}
                     
                     {/* Lock/Unlock indicator overlay */}
                     {!isUnlocked && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
-                          🔒 Locked
+                      <div className="absolute -top-2 -right-2">
+                        <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-semibold shadow-lg flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                          </svg>
+                          Locked
                         </span>
                       </div>
                     )}
@@ -838,7 +872,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
               </div>
 
               {/* Worker Details Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -849,6 +883,19 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                   </div>
                   <p className="font-semibold text-gray-800">{viewingWorker.location || 'Not specified'}</p>
                 </div>
+
+                {viewingWorker.pincode && (
+                  <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <p className="text-sm text-orange-600 font-medium">Pincode</p>
+                    </div>
+                    <p className="font-semibold text-gray-800">{viewingWorker.pincode}</p>
+                  </div>
+                )}
 
                 {(viewingWorker.yearsOfExperience !== undefined || viewingWorker.experience !== undefined) && (
                   <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-4">

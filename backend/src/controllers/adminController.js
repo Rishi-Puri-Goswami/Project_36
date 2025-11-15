@@ -361,17 +361,17 @@ export const getDashboardOverview = async (req, res) => {
     // 2. Total Jobs Posted
     const totalJobs = await ClientPost.countDocuments();
 
-    // 3. Total Revenue from Subscriptions
+    // 3. Total Revenue from Subscriptions (use price.amount and SUCCESS status)
     const revenueData = await Payment.aggregate([
-      { 
-        $match: { 
-          status: 'completed' 
-        } 
+      {
+        $match: {
+          status: 'SUCCESS'
+        }
       },
       {
         $group: {
           _id: null,
-          totalRevenue: { $sum: '$amount' }
+          totalRevenue: { $sum: '$price.amount' }
         }
       }
     ]);
@@ -457,7 +457,7 @@ export const getDashboardOverview = async (req, res) => {
         $group: {
           _id: '$status',
           count: { $sum: 1 },
-          totalAmount: { $sum: '$amount' }
+          totalAmount: { $sum: '$price.amount' }
         }
       },
       {
@@ -475,7 +475,7 @@ export const getDashboardOverview = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(10)
       .populate('userId', 'name email')
-      .select('orderId amount status createdAt');
+      .select('razorpayOrderId price status createdAt paymentId');
 
     // Return comprehensive dashboard data
     return res.status(200).json({
@@ -639,14 +639,14 @@ export const getRevenueAnalytics = async (req, res) => {
     const revenueData = await Payment.aggregate([
       {
         $match: {
-          status: 'completed',
+          status: 'SUCCESS',
           createdAt: { $gte: dateRange }
         }
       },
       {
         $group: {
           _id: groupBy,
-          totalRevenue: { $sum: '$amount' },
+          totalRevenue: { $sum: '$price.amount' },
           transactionCount: { $sum: 1 }
         }
       },
@@ -796,8 +796,8 @@ export const getClientDetails = async (req, res) => {
           totalJobPosts: await ClientPost.countDocuments({ clientId }),
           totalPayments: await Payment.countDocuments({ userId: clientId }),
           totalSpent: await Payment.aggregate([
-            { $match: { userId: client._id, status: 'completed' } },
-            { $group: { _id: null, total: { $sum: '$amount' } } }
+            { $match: { userId: client._id, status: 'SUCCESS' } },
+            { $group: { _id: null, total: { $sum: '$price.amount' } } }
           ]).then(result => result[0]?.total || 0)
         }
       }
@@ -870,8 +870,8 @@ export const getClientPaymentHistory = async (req, res) => {
     
     // Calculate total spent
     const totalSpent = await Payment.aggregate([
-      { $match: { userId: new mongoose.Types.ObjectId(clientId), status: 'completed' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
+      { $match: { userId: new mongoose.Types.ObjectId(clientId), status: 'SUCCESS' } },
+      { $group: { _id: null, total: { $sum: '$price.amount' } } }
     ]);
     
     return res.status(200).json({
@@ -892,6 +892,29 @@ export const getClientPaymentHistory = async (req, res) => {
       error: 'Server error while fetching payment history',
       details: error.message 
     });
+  }
+};
+
+/**
+ * Get single payment details
+ * GET /api/admin/payments/:paymentId
+ */
+export const getPaymentDetails = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+
+    if (!paymentId) return res.status(400).json({ error: 'paymentId is required' });
+
+    const payment = await Payment.findById(paymentId)
+      .populate('userId', 'name email')
+      .populate('planId', 'planName price');
+
+    if (!payment) return res.status(404).json({ error: 'Payment not found' });
+
+    return res.status(200).json({ payment });
+  } catch (error) {
+    console.error('Error in getPaymentDetails:', error);
+    return res.status(500).json({ error: 'Server error while fetching payment details', details: error.message });
   }
 };
 
@@ -1711,6 +1734,41 @@ export const deleteJobPost = async (req, res) => {
   }
 };
 
+/**
+ * Toggle Featured Status for Job Post
+ */
+export const toggleJobPostFeatured = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { isFeatured } = req.body;
+    
+    const jobPost = await ClientPost.findById(postId);
+    
+    if (!jobPost) {
+      return res.status(404).json({ error: 'Job post not found' });
+    }
+    
+    jobPost.isFeatured = isFeatured;
+    await jobPost.save();
+    
+    return res.status(200).json({
+      message: `Job post ${isFeatured ? 'marked as' : 'removed from'} featured successfully`,
+      jobPost: {
+        id: jobPost._id,
+        workType: jobPost.workType,
+        isFeatured: jobPost.isFeatured
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in toggleJobPostFeatured:', error);
+    return res.status(500).json({ 
+      error: 'Server error while updating featured status',
+      details: error.message 
+    });
+  }
+};
+
 // ==================== SUBSCRIPTION & PLANS MANAGEMENT ====================
 
 /**
@@ -1911,32 +1969,65 @@ export const deletePlan = async (req, res) => {
 export const getPlanPurchaseHistory = async (req, res) => {
   try {
     const { planId } = req.params;
-    const { page = 1, limit = 20, status } = req.query;
-    
+    const { page = 1, limit = 20, status, startDate, endDate, minAmount, maxAmount } = req.query;
+
     let query = { planId };
-    
+
     if (status) {
-      query.status = status.toUpperCase();
+      // Use case-insensitive match so stored status casing doesn't matter
+      query.status = new RegExp(`^${status}$`, 'i');
     }
-    
+
+    // Date range filter
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        const s = new Date(startDate);
+        if (isNaN(s.getTime())) return res.status(400).json({ error: 'Invalid startDate' });
+        query.createdAt.$gte = s;
+      }
+      if (endDate) {
+        const e = new Date(endDate);
+        if (isNaN(e.getTime())) return res.status(400).json({ error: 'Invalid endDate' });
+        // include whole day for convenience if time not provided
+        query.createdAt.$lte = e;
+      }
+    }
+
+    // Amount range filter (price.amount)
+    if (minAmount !== undefined || maxAmount !== undefined) {
+      const amtFilter = {};
+      if (minAmount !== undefined) {
+        const minA = Number(minAmount);
+        if (isNaN(minA)) return res.status(400).json({ error: 'Invalid minAmount' });
+        amtFilter.$gte = minA;
+      }
+      if (maxAmount !== undefined) {
+        const maxA = Number(maxAmount);
+        if (isNaN(maxA)) return res.status(400).json({ error: 'Invalid maxAmount' });
+        amtFilter.$lte = maxA;
+      }
+      query['price.amount'] = amtFilter;
+    }
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     const purchases = await Payment.find(query)
       .populate('userId', 'name email')
       .populate('planId', 'planName price')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
-    
+
     const totalPurchases = await Payment.countDocuments(query);
-    
+
     return res.status(200).json({
       purchases,
       currentPage: parseInt(page),
       totalPages: Math.ceil(totalPurchases / parseInt(limit)),
       totalPurchases
     });
-    
+
   } catch (error) {
     console.error('Error in getPlanPurchaseHistory:', error);
     return res.status(500).json({ 
@@ -1951,34 +2042,71 @@ export const getPlanPurchaseHistory = async (req, res) => {
  */
 export const getAllPurchaseHistory = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, planId } = req.query;
-    
+    const { page = 1, limit = 20, status, planId, startDate, endDate, minAmount, maxAmount } = req.query;
+
     let query = {};
-    
+
     if (status) {
-      query.status = status.toUpperCase();
+      // Use case-insensitive match so stored status casing doesn't matter
+      query.status = new RegExp(`^${status}$`, 'i');
     }
-    
+
     if (planId) {
       query.planId = planId;
     }
-    
+
+    // Date range filter
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        const s = new Date(startDate);
+        if (isNaN(s.getTime())) return res.status(400).json({ error: 'Invalid startDate' });
+        query.createdAt.$gte = s;
+      }
+      if (endDate) {
+        const e = new Date(endDate);
+        if (isNaN(e.getTime())) return res.status(400).json({ error: 'Invalid endDate' });
+        query.createdAt.$lte = e;
+      }
+    }
+
+    // Amount range filter (price.amount)
+    if (minAmount !== undefined || maxAmount !== undefined) {
+      const amtFilter = {};
+      if (minAmount !== undefined) {
+        const minA = Number(minAmount);
+        if (isNaN(minA)) return res.status(400).json({ error: 'Invalid minAmount' });
+        amtFilter.$gte = minA;
+      }
+      if (maxAmount !== undefined) {
+        const maxA = Number(maxAmount);
+        if (isNaN(maxA)) return res.status(400).json({ error: 'Invalid maxAmount' });
+        amtFilter.$lte = maxA;
+      }
+      query['price.amount'] = amtFilter;
+    }
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     const purchases = await Payment.find(query)
       .populate('userId', 'name email')
       .populate('planId', 'planName price')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
-    
+
     const totalPurchases = await Payment.countDocuments(query);
-    
+
+    // For total revenue aggregation, ensure we only sum successful payments
+    // Spread query first then enforce status:'SUCCESS' so user-provided status
+    // doesn't accidentally override the success-only revenue calculation.
+    const aggMatch = { ...query, status: 'SUCCESS' };
+
     const totalRevenue = await Payment.aggregate([
-      { $match: { status: 'SUCCESS', ...query } },
+      { $match: aggMatch },
       { $group: { _id: null, total: { $sum: '$price.amount' } } }
     ]);
-    
+
     return res.status(200).json({
       purchases,
       currentPage: parseInt(page),
@@ -1986,7 +2114,7 @@ export const getAllPurchaseHistory = async (req, res) => {
       totalPurchases,
       totalRevenue: totalRevenue[0]?.total || 0
     });
-    
+
   } catch (error) {
     console.error('Error in getAllPurchaseHistory:', error);
     return res.status(500).json({ 
@@ -2320,6 +2448,127 @@ export const deleteWorkerPostAdmin = async (req, res) => {
     console.error('Error in deleteWorkerPostAdmin:', error);
     return res.status(500).json({ 
       error: 'Server error while deleting worker post',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Update Admin Profile
+ * PUT /api/admin/auth/profile
+ * Body: { name }
+ */
+export const updateAdminProfile = async (req, res) => {
+  try {
+    const adminId = req.admin.id;
+    const { name } = req.body;
+
+    // Validate input
+    if (!name || name.trim().length < 2) {
+      return res.status(400).json({ 
+        error: 'Name is required and must be at least 2 characters long' 
+      });
+    }
+
+    // Update admin profile
+    const updatedAdmin = await Admin.findByIdAndUpdate(
+      adminId,
+      { name: name.trim() },
+      { new: true, select: '-secretKey' }
+    );
+
+    if (!updatedAdmin) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    return res.status(200).json({
+      message: 'Profile updated successfully',
+      admin: {
+        id: updatedAdmin._id,
+        name: updatedAdmin.name,
+        email: updatedAdmin.email,
+        role: updatedAdmin.role,
+        lastLogin: updatedAdmin.lastLogin
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in updateAdminProfile:', error);
+    return res.status(500).json({ 
+      error: 'Server error while updating profile',
+      details: error.message 
+    });
+  }
+};
+
+/**
+ * Change Admin Password (Secret Key)
+ * PUT /api/admin/auth/change-password
+ * Body: { currentSecretKey, newSecretKey }
+ */
+export const changeAdminPassword = async (req, res) => {
+  try {
+    const adminId = req.admin.id;
+    const { currentSecretKey, newSecretKey } = req.body;
+
+    // Validate input
+    if (!currentSecretKey || !newSecretKey) {
+      return res.status(400).json({ 
+        error: 'Current secret key and new secret key are required' 
+      });
+    }
+
+    if (newSecretKey.length < 6) {
+      return res.status(400).json({ 
+        error: 'New secret key must be at least 6 characters long' 
+      });
+    }
+
+    // Find admin
+    const admin = await Admin.findById(adminId);
+
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    // Verify current secret key
+    if (admin.secretKey !== currentSecretKey) {
+      return res.status(401).json({ 
+        error: 'Current secret key is incorrect' 
+      });
+    }
+
+    // Check if new secret key is different from current
+    if (currentSecretKey === newSecretKey) {
+      return res.status(400).json({ 
+        error: 'New secret key must be different from current secret key' 
+      });
+    }
+
+    // Check if new secret key is already used by another admin
+    const existingAdmin = await Admin.findOne({ 
+      secretKey: newSecretKey,
+      _id: { $ne: adminId }
+    });
+
+    if (existingAdmin) {
+      return res.status(400).json({ 
+        error: 'This secret key is already in use by another admin' 
+      });
+    }
+
+    // Update secret key
+    admin.secretKey = newSecretKey;
+    await admin.save();
+
+    return res.status(200).json({
+      message: 'Password changed successfully'
+    });
+
+  } catch (error) {
+    console.error('Error in changeAdminPassword:', error);
+    return res.status(500).json({ 
+      error: 'Server error while changing password',
       details: error.message 
     });
   }

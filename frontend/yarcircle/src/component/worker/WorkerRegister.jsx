@@ -13,6 +13,8 @@ const WorkerRegister = () => {
     workType: '',
     email: '',
     location: '',
+    pincode: '',
+    bio: '',
     yearsOfExperience: '',
     age: ''
   })
@@ -76,6 +78,8 @@ const WorkerRegister = () => {
           workType: formData.workType,
           email: formData.email || undefined,
           location: formData.location || undefined,
+          pincode: formData.pincode || undefined,
+          bio: formData.bio || undefined,
           yearsOfExperience: formData.yearsOfExperience ? parseInt(formData.yearsOfExperience) : undefined,
           age: formData.age ? parseInt(formData.age) : undefined
         })
@@ -276,19 +280,52 @@ const WorkerRegister = () => {
               </select>
             </div>
 
-            {/* Location */}
+            {/* Location and Pincode */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="location" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Location
+                </label>
+                <input
+                  type="text"
+                  id="location"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  placeholder="e.g., Mumbai, Maharashtra"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                />
+              </div>
+              <div>
+                <label htmlFor="pincode" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Pincode
+                </label>
+                <input
+                  type="text"
+                  id="pincode"
+                  name="pincode"
+                  value={formData.pincode}
+                  onChange={handleChange}
+                  placeholder="400001"
+                  maxLength="6"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Bio */}
             <div>
-              <label htmlFor="location" className="block text-sm font-semibold text-gray-700 mb-2">
-                Location
+              <label htmlFor="bio" className="block text-sm font-semibold text-gray-700 mb-2">
+                Bio / About You
               </label>
-              <input
-                type="text"
-                id="location"
-                name="location"
-                value={formData.location}
+              <textarea
+                id="bio"
+                name="bio"
+                value={formData.bio}
                 onChange={handleChange}
-                placeholder="e.g., Mumbai, Maharashtra"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                rows="3"
+                placeholder="Tell us about yourself, your skills, and work experience..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none"
               />
             </div>
 

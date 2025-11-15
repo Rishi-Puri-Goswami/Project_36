@@ -12,7 +12,7 @@ import imagekit from "../config/imagekit.js";
 
 export const registerWorker = async (req, res) => {
   try {
-    const { name, email, password, phone, workType, location, yearsOfExperience, age } = req.body;
+    const { name, email, password, phone, workType, location, yearsOfExperience, age , bio, pincode } = req.body;
 
     // Validation
     if (!name || !phone || !password || !workType) {
@@ -58,6 +58,8 @@ export const registerWorker = async (req, res) => {
       password,
       phone,
       workType,
+      bio,
+      pincode: pincode || undefined,
       location: location || undefined,
       yearsOfExperience: yearsOfExperience || 0,
       age: age || undefined,

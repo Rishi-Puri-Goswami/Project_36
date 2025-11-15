@@ -12,6 +12,7 @@ const ClientPostSchema = new mongoose.Schema({
   validityDays: { type: Number, default: 15 },
   expiryDate: Date,
   paidVisibility: { type: Boolean, default: false },
+  isFeatured: { type: Boolean, default: false }, // Admin can mark as featured
   workerApplications: [{ type: mongoose.Schema.Types.ObjectId, ref: "Worker" }]
 }, { timestamps: true });
 
