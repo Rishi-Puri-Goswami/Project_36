@@ -15,6 +15,10 @@ const WorkerProfile = () => {
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
+  const [uploadingCoverPhoto, setUploadingCoverPhoto] = useState(false)
+  const [showCoverPhotoUploadModal, setShowCoverPhotoUploadModal] = useState(false)
+  const [selectedCoverFile, setSelectedCoverFile] = useState(null)
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState(null)
   const [postImages, setPostImages] = useState([])
   const [postImagePreviews, setPostImagePreviews] = useState([])
   const [newPost, setNewPost] = useState({
@@ -306,6 +310,82 @@ const WorkerProfile = () => {
     setPreviewUrl(null)
   }
 
+  const handleCoverPhotoSelect = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file')
+        return
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB')
+        return
+      }
+
+      setSelectedCoverFile(file)
+      
+      // Create preview URL
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setCoverPreviewUrl(reader.result)
+      }
+      reader.readAsDataURL(file)
+      
+      setShowCoverPhotoUploadModal(true)
+    }
+  }
+
+  const handleUploadCoverPhoto = async () => {
+    if (!selectedCoverFile) return
+
+    setUploadingCoverPhoto(true)
+    try {
+      const token = localStorage.getItem('workerToken')
+      const formData = new FormData()
+      formData.append('coverPhoto', selectedCoverFile)
+
+      const response = await fetch(`${API_URL}/workers/upload-cover-photo`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setWorker(data.worker)
+        setShowCoverPhotoUploadModal(false)
+        setSelectedCoverFile(null)
+        setCoverPreviewUrl(null)
+        setMessage({ type: 'success', text: '✅ Cover photo updated successfully!' })
+        
+        // Clear message after 3 seconds
+        setTimeout(() => {
+          setMessage({ type: '', text: '' })
+        }, 3000)
+      } else {
+        const errorData = await response.json()
+        setMessage({ type: 'error', text: `❌ ${errorData.error || 'Failed to upload cover photo'}` })
+      }
+    } catch (error) {
+      console.error('Error uploading cover photo:', error)
+      setMessage({ type: 'error', text: '❌ Error uploading cover photo' })
+    } finally {
+      setUploadingCoverPhoto(false)
+    }
+  }
+
+  const cancelCoverPhotoUpload = () => {
+    setShowCoverPhotoUploadModal(false)
+    setSelectedCoverFile(null)
+    setCoverPreviewUrl(null)
+  }
+
   const handlePostImageSelect = (event) => {
     const files = Array.from(event.target.files)
     
@@ -436,9 +516,9 @@ const WorkerProfile = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen rubik-regular bg-neutral-200 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading profile...</p>
         </div>
       </div>
@@ -446,9 +526,9 @@ const WorkerProfile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen rubik-regular bg-neutral-200">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className=" backdrop-blur-2xl  shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button 
@@ -459,7 +539,7 @@ const WorkerProfile = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            <div className="bg-green-600 rounded-lg p-2">
+            <div className="bg-black rounded-lg p-2">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
@@ -472,7 +552,7 @@ const WorkerProfile = () => {
           
           <button 
             onClick={handleLogout}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors text-sm"
+            className="px-4 py-2 bg-black text-white rounded-lg font-semibold hover:bg-gray-900 transition-colors text-sm"
           >
             Logout
           </button>
@@ -484,14 +564,35 @@ const WorkerProfile = () => {
         {/* Profile Header Card */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
           {/* Cover Photo */}
-          <div className="h-32 bg-gradient-to-r from-green-600 to-blue-600"></div>
+          <div 
+            className="h-32 bg-blue-800 bg-cover bg-center bg-no-repeat relative group"
+            style={worker?.coverPhoto ? { backgroundImage: `linear-gradient(rgba(30, 64, 175, 0.3), rgba(30, 64, 175, 0.3)), url(${worker.coverPhoto})` } : {}}
+          >
+            {/* Upload Cover Photo Icon */}
+            <label 
+              htmlFor="worker-cover-photo-upload"
+              className="absolute bottom-2 right-2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full p-2 shadow-lg cursor-pointer transition-all opacity-0 group-hover:opacity-100"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <input
+                id="worker-cover-photo-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleCoverPhotoSelect}
+                className="hidden"
+              />
+            </label>
+          </div>
           
           {/* Profile Info */}
-          <div className="px-8 pb-8">
-            <div className="flex items-end gap-6 -mt-16 mb-6">
+          <div className="px-4 sm:px-8 pb-8">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6 -mt-16">
               {/* Profile Picture */}
-              <div className="relative group">
-                <div className="w-32 h-32 rounded-full bg-white p-2 shadow-lg">
+              <div className="relative group flex-shrink-0 mx-auto sm:mx-0">
+                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-white p-2 shadow-lg">
                   {worker?.profilePicture ? (
                     <img 
                       src={worker.profilePicture} 
@@ -499,7 +600,7 @@ const WorkerProfile = () => {
                       className="w-full h-full rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white text-4xl font-bold">
+                    <div className="w-full h-full rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center text-white text-2xl sm:text-4xl font-bold">
                       {worker?.name?.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -507,9 +608,9 @@ const WorkerProfile = () => {
                 {/* Camera Icon Overlay */}
                 <label 
                   htmlFor="worker-profile-photo-upload"
-                  className="absolute bottom-3 right-3 bg-green-600 hover:bg-green-700 text-white rounded-full p-2 shadow-lg cursor-pointer transition-all transform hover:scale-110"
+                  className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 bg-black hover:bg-gray-900 text-white rounded-full p-1.5 sm:p-2 shadow-lg cursor-pointer transition-all transform hover:scale-110"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
@@ -524,51 +625,53 @@ const WorkerProfile = () => {
               </div>
               
               {/* Name and Work Type */}
-              <div className="flex-1 pt-16">
-                <h2 className="text-3xl font-bold text-gray-800">{worker?.name}</h2>
-                <p className="text-lg text-gray-600">{worker?.workType}</p>
-                <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                  <div className="flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex-1 pt-16 min-w-0">
+                <h2 className="text-3xl font-bold text-gray-800 truncate">{worker?.name}</h2>
+                <p className="text-lg text-gray-600 truncate">{worker?.workType}</p>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-sm text-gray-500">
+                  <div className="flex items-center gap-1 min-w-0 flex-1">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    <span>{worker?.location || 'Location not set'}</span>
+                    <span className="truncate">{worker?.location || 'Location not set'}</span>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    <span>{worker?.yearsOfExperience || 0} years experience</span>
+                    <span className="whitespace-nowrap">{worker?.yearsOfExperience || 0} years experience</span>
                   </div>
                 </div>
               </div>
 
-              {/* Edit Profile Button */}
-              {!isEditing ? (
-                <button 
-                  onClick={handleEditClick}
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
-                >
-                  Edit Profile
-                </button>
-              ) : (
-                <div className="flex gap-3">
-                  <button 
-                    onClick={handleCancelEdit}
-                    className="px-6 py-2 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 transition-colors"
+              {/* Edit Profile Button - Always visible */}
+              <div className="flex-shrink-0 pt-16">
+                {!isEditing ? (
+                  <button
+                    onClick={handleEditClick}
+                    className="px-4 py-2 bg-blue-800 text-white rounded-lg font-semibold hover:bg-blue-900 transition-colors text-sm whitespace-nowrap"
                   >
-                    Cancel
+                    Edit Profile
                   </button>
-                  <button 
-                    onClick={handleSaveProfile}
-                    disabled={saving}
-                    className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:bg-green-300"
-                  >
-                    {saving ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              )}
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      onClick={handleCancelEdit}
+                      className="px-4 py-2 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 transition-colors text-sm whitespace-nowrap"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveProfile}
+                      disabled={saving}
+                      className="px-4 py-2 bg-black text-white rounded-lg font-semibold hover:bg-gray-900 transition-colors disabled:bg-gray-300 text-sm whitespace-nowrap"
+                    >
+                      {saving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -577,7 +680,7 @@ const WorkerProfile = () => {
         {message.text && (
           <div className={`mb-6 p-4 rounded-lg ${
             message.type === 'success' 
-              ? 'bg-green-100 border border-green-400 text-green-700' 
+              ? 'bg-gray-100 border border-gray-400 text-gray-700' 
               : 'bg-red-100 border border-red-400 text-red-700'
           }`}>
             <div className="flex items-center gap-2">
@@ -600,7 +703,7 @@ const WorkerProfile = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-gray-600">Jobs Applied</h3>
-              <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
@@ -611,7 +714,7 @@ const WorkerProfile = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-gray-600">Experience</h3>
-              <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -622,7 +725,7 @@ const WorkerProfile = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-gray-600">Age</h3>
-              <svg className="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </div>
@@ -633,11 +736,11 @@ const WorkerProfile = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-gray-600">Status</h3>
-              <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <p className="text-lg font-bold text-green-600 capitalize">{worker?.status || 'Active'}</p>
+            <p className="text-lg font-bold text-gray-600 capitalize">{worker?.status || 'Active'}</p>
             <p className="text-xs text-gray-500 mt-1">Account status</p>
           </div>
         </div>
@@ -650,7 +753,7 @@ const WorkerProfile = () => {
                 onClick={() => setActiveTab('overview')}
                 className={`px-6 py-4 text-sm font-semibold border-b-2 transition-colors ${
                   activeTab === 'overview'
-                    ? 'border-green-600 text-green-600'
+                    ? 'border-blue-800 text-blue-800'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -660,7 +763,7 @@ const WorkerProfile = () => {
                 onClick={() => setActiveTab('applications')}
                 className={`px-6 py-4 text-sm font-semibold border-b-2 transition-colors ${
                   activeTab === 'applications'
-                    ? 'border-green-600 text-green-600'
+                    ? 'border-blue-800 text-blue-800'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -670,7 +773,7 @@ const WorkerProfile = () => {
                 onClick={() => setActiveTab('posts')}
                 className={`px-6 py-4 text-sm font-semibold border-b-2 transition-colors ${
                   activeTab === 'posts'
-                    ? 'border-green-600 text-green-600'
+                    ? 'border-blue-800 text-blue-800'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -680,7 +783,7 @@ const WorkerProfile = () => {
                 onClick={() => setActiveTab('details')}
                 className={`px-6 py-4 text-sm font-semibold border-b-2 transition-colors ${
                   activeTab === 'details'
-                    ? 'border-green-600 text-green-600'
+                    ? 'border-blue-800 text-blue-800'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -720,7 +823,7 @@ const WorkerProfile = () => {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="bg-gray-50 rounded-lg p-4">
                       <p className="text-sm text-gray-500 mb-1">Account Verified</p>
-                      <p className="text-base font-semibold text-green-600">
+                      <p className="text-base font-semibold text-gray-600">
                         {worker?.otpVerified ? 'Yes ✓' : 'No'}
                       </p>
                     </div>
@@ -762,7 +865,7 @@ const WorkerProfile = () => {
                     <p className="text-gray-500">No applications yet</p>
                     <button 
                       onClick={() => navigate('/worker/dashboard')}
-                      className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      className="mt-4 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors"
                     >
                       Browse Jobs
                     </button>
@@ -777,7 +880,7 @@ const WorkerProfile = () => {
                   <h3 className="text-lg font-semibold text-gray-800">My Posts</h3>
                   <button
                     onClick={() => setShowCreatePost(!showCreatePost)}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -787,7 +890,7 @@ const WorkerProfile = () => {
                 </div>
 
                 {showCreatePost && (
-                  <div className="bg-gray-50 rounded-lg p-6 mb-6 border-2 border-green-200">
+                  <div className="bg-gray-50 rounded-lg p-6 mb-6 border-2 border-gray-200">
                     <h4 className="text-md font-semibold text-gray-800 mb-4">Create New Post</h4>
                     <div className="space-y-4">
                       <div>
@@ -798,7 +901,7 @@ const WorkerProfile = () => {
                           value={newPost.title}
                           onChange={handlePostInputChange}
                           placeholder="e.g., Experienced Plumber Available"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-800"
                         />
                       </div>
                       <div>
@@ -809,7 +912,7 @@ const WorkerProfile = () => {
                           onChange={handlePostInputChange}
                           placeholder="Describe your services, experience, and what makes you stand out..."
                           rows="4"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-800"
                         />
                       </div>
                       <div className="grid md:grid-cols-2 gap-4">
@@ -821,7 +924,7 @@ const WorkerProfile = () => {
                             value={newPost.skills}
                             onChange={handlePostInputChange}
                             placeholder="e.g., Plumbing, Carpentry, Electrical"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-800"
                           />
                         </div>
                         <div>
@@ -832,7 +935,7 @@ const WorkerProfile = () => {
                             value={newPost.availability}
                             onChange={handlePostInputChange}
                             placeholder="e.g., Full-time, Part-time, Weekends"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-800"
                           />
                         </div>
                       </div>
@@ -844,7 +947,7 @@ const WorkerProfile = () => {
                           value={newPost.expectedSalary}
                           onChange={handlePostInputChange}
                           placeholder="e.g., ₹25,000 - ₹35,000 per month"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-800"
                         />
                       </div>
                       
@@ -853,7 +956,7 @@ const WorkerProfile = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Post Images (Optional - Max 5)
                         </label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-green-500 transition-colors">
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-500 transition-colors">
                           <input
                             type="file"
                             id="post-images"
@@ -902,7 +1005,7 @@ const WorkerProfile = () => {
                         <button
                           onClick={handleCreatePost}
                           disabled={saving}
-                          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                          className="px-6 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors disabled:opacity-50"
                         >
                           {saving ? 'Creating...' : 'Create Post'}
                         </button>
@@ -982,7 +1085,7 @@ const WorkerProfile = () => {
                         <div className="grid md:grid-cols-3 gap-3 text-sm">
                           {post.skills && (
                             <div className="flex items-center gap-2">
-                              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                               <span className="text-gray-600"><strong>Skills:</strong> {post.skills}</span>
@@ -1036,7 +1139,7 @@ const WorkerProfile = () => {
                           name="name"
                           value={editForm.name}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent"
                           placeholder="Enter your full name"
                         />
                       </div>
@@ -1047,7 +1150,7 @@ const WorkerProfile = () => {
                           name="age"
                           value={editForm.age}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent"
                           placeholder="Enter your age"
                         />
                       </div>
@@ -1058,7 +1161,7 @@ const WorkerProfile = () => {
                           name="phone"
                           value={editForm.phone}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-100"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent bg-gray-100"
                           placeholder="Enter your phone number"
                           disabled
                         />
@@ -1071,7 +1174,7 @@ const WorkerProfile = () => {
                           name="email"
                           value={editForm.email}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent"
                           placeholder="Enter your email"
                         />
                       </div>
@@ -1081,7 +1184,7 @@ const WorkerProfile = () => {
                           name="workType"
                           value={editForm.workType}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent"
                         >
                           <option value="">Select work type</option>
                           <option value="Plumber">Plumber</option>
@@ -1104,7 +1207,7 @@ const WorkerProfile = () => {
                           name="yearsOfExperience"
                           value={editForm.yearsOfExperience}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent"
                           placeholder="Enter years of experience"
                           min="0"
                         />
@@ -1116,7 +1219,7 @@ const WorkerProfile = () => {
                           name="location"
                           value={editForm.location}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent"
                           placeholder="Enter your location (City, State)"
                         />
                       </div>
@@ -1131,7 +1234,7 @@ const WorkerProfile = () => {
                       <button
                         onClick={handleSaveProfile}
                         disabled={saving}
-                        className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:bg-green-300"
+                        className="px-6 py-2 bg-blue-800 text-white rounded-lg font-semibold hover:bg-blue-900 transition-colors disabled:bg-gray-300"
                       >
                         {saving ? 'Saving...' : 'Save Changes'}
                       </button>
@@ -1181,16 +1284,16 @@ const WorkerProfile = () => {
       {showPhotoUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-            <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-t-2xl">
+            <div className="bg-blue-800 text-white p-6 rounded-t-2xl">
               <h2 className="text-2xl font-bold">Upload Profile Picture</h2>
-              <p className="text-green-100 text-sm mt-1">Choose your best photo</p>
+              <p className="text-gray-100 text-sm mt-1">Choose your best photo</p>
             </div>
 
             <div className="p-6">
               {/* Preview */}
               {previewUrl && (
                 <div className="mb-6 flex justify-center">
-                  <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-green-500 shadow-lg">
+                  <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-gray-500 shadow-lg">
                     <img 
                       src={previewUrl} 
                       alt="Preview" 
@@ -1202,7 +1305,7 @@ const WorkerProfile = () => {
 
               {/* File Info */}
               {selectedFile && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
                   <p className="text-sm text-gray-700">
                     <span className="font-semibold">File:</span> {selectedFile.name}
                   </p>
@@ -1224,9 +1327,81 @@ const WorkerProfile = () => {
                 <button
                   onClick={handleUploadPhoto}
                   disabled={uploadingPhoto}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-3 bg-blue-800 text-white rounded-lg font-semibold hover:bg-blue-900 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {uploadingPhoto ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      Upload
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cover Photo Upload Modal */}
+      {showCoverPhotoUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full">
+            <div className="bg-blue-800 text-white p-6 rounded-t-2xl">
+              <h2 className="text-2xl font-bold">Upload Cover Photo</h2>
+              <p className="text-gray-100 text-sm mt-1">Choose a banner image for your profile</p>
+            </div>
+
+            <div className="p-6">
+              {/* Preview */}
+              {coverPreviewUrl && (
+                <div className="mb-6">
+                  <div className="w-full h-48 rounded-lg overflow-hidden border-4 border-gray-300 shadow-lg">
+                    <img 
+                      src={coverPreviewUrl} 
+                      alt="Cover Preview" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* File Info */}
+              {selectedCoverFile && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold">File:</span> {selectedCoverFile.name}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold">Size:</span> {(selectedCoverFile.size / 1024).toFixed(2)} KB
+                  </p>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex gap-4">
+                <button
+                  onClick={cancelCoverPhotoUpload}
+                  disabled={uploadingCoverPhoto}
+                  className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUploadCoverPhoto}
+                  disabled={uploadingCoverPhoto}
+                  className="flex-1 px-4 py-3 bg-blue-800 text-white rounded-lg font-semibold hover:bg-blue-900 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {uploadingCoverPhoto ? (
                     <>
                       <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>

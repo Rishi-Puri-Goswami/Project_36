@@ -21,6 +21,7 @@ const workerSchema = new mongoose.Schema({
   skills: [String],
   bio: String,
   profilePicture: String,
+  coverPhoto: String,
   otpVerified: { type: Boolean, default: false },
   otp: { 
     code: String, 

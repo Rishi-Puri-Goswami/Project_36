@@ -7,6 +7,7 @@ import { sendOtpSms } from "../utils/smsService.js";
 import { Subscription } from "../models/subscription_model.js";
 import { Plan } from "../models/planes_model.js";
 import imagekit from "../config/imagekit.js";
+import bcrypt from "bcrypt";
 
 // ============= AUTHENTICATION APIs =============
 
@@ -50,12 +51,16 @@ export const registerWorker = async (req, res) => {
         status: 500,
         error: smsResult.message
       });
-    }
+    } 
+
+    // Hash the password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const newWorker = new Worker({
       name,
       email: email || undefined,
-      password,
+      password: hashedPassword,
       phone,
       workType,
       bio,
@@ -243,8 +248,28 @@ export const loginWorker = async (req, res) => {
       return res.status(403).json({ message: "Please verify your phone number first", status: 403 });
     }
 
-    // Check password (Note: You should use bcrypt to hash passwords in production)
-    if (worker.password !== password) {
+    // Check password using bcrypt (handle both hashed and plain text passwords during transition)
+    let isPasswordValid = false;
+    
+    // Check if password is already hashed (bcrypt hashes start with $2a$, $2b$, or $2y$)
+    if (worker.password.startsWith('$2a$') || worker.password.startsWith('$2b$') || worker.password.startsWith('$2y$')) {
+      // Password is hashed, use bcrypt.compare
+      isPasswordValid = await bcrypt.compare(password, worker.password);
+    } else {
+      // Password is plain text, do direct comparison (for backward compatibility)
+      isPasswordValid = (worker.password === password);
+      
+      // If login succeeds with plain text, hash the password for future logins
+      if (isPasswordValid) {
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        worker.password = hashedPassword;
+        await worker.save();
+        console.log(`🔐 Worker ${worker.name} password automatically hashed during login`);
+      }
+    }
+    
+    if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid phone number or password", status: 401 });
     }
 
@@ -636,6 +661,144 @@ export const uploadWorkerProfilePicture = async (req, res) => {
   } catch (error) {
     console.error("Error uploading worker profile picture:", error);
     return res.status(500).json({ error: "Failed to upload profile picture" });
+  }
+};
+
+// 🖼️ Upload Worker Cover Photo using ImageKit
+export const uploadWorkerCoverPhoto = async (req, res) => {
+  try {
+    const workerId = req.worker._id;
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Upload to ImageKit
+    const uploadResponse = await imagekit.upload({
+      file: req.file.buffer.toString('base64'),
+      fileName: `worker_cover_${workerId}_${Date.now()}.${req.file.mimetype.split('/')[1]}`,
+      folder: '/cover_photos/workers',
+      useUniqueFileName: true
+    });
+
+    // Update worker cover photo URL in database
+    const worker = await Worker.findByIdAndUpdate(
+      workerId,
+      { coverPhoto: uploadResponse.url },
+      { new: true }
+    ).select('-password -otp');
+
+    console.log(`🖼️ Worker ${worker.name} cover photo updated`);
+
+    return res.status(200).json({
+      message: "Cover photo uploaded successfully",
+      coverPhoto: uploadResponse.url,
+      worker: worker
+    });
+
+  } catch (error) {
+    console.error("Error uploading worker cover photo:", error);
+    return res.status(500).json({ error: "Failed to upload cover photo" });
+  }
+};
+
+// 🔐 Change Worker Password
+export const changeWorkerPassword = async (req, res) => {
+  try {
+    const workerId = req.worker._id;
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    // Validation
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ 
+        message: "Current password, new password, and confirm password are required" 
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "New passwords do not match" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "New password must be at least 6 characters long" });
+    }
+
+    // Find worker
+    const worker = await Worker.findById(workerId);
+    if (!worker) {
+      return res.status(404).json({ message: "Worker not found" });
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, worker.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    worker.password = hashedNewPassword;
+    await worker.save();
+
+    console.log(`🔐 Worker ${worker.name} password changed successfully`);
+
+    return res.status(200).json({ 
+      message: "Password changed successfully",
+      status: 200
+    });
+
+  } catch (error) {
+    console.error("Error changing worker password:", error);
+    return res.status(500).json({ 
+      message: "Server error occurred while changing password",
+      error: error.message 
+    });
+  }
+};
+
+// 🗑️ Delete Worker Profile
+export const deleteWorkerProfile = async (req, res) => {
+  try {
+    const workerId = req.worker._id;
+
+    // Find worker
+    const worker = await Worker.findById(workerId);
+    if (!worker) {
+      return res.status(404).json({ message: "Worker not found" });
+    }
+
+    // Delete all related data
+    // 1. Delete worker posts
+    await WorkerPost.deleteMany({ workerId });
+
+    // 2. Delete worker applications from client posts
+    await ClientPost.updateMany(
+      { "workerApplications.workerId": workerId },
+      { $pull: { workerApplications: { workerId } } }
+    );
+
+    // 3. Delete worker subscriptions
+    await Subscription.deleteMany({ workerId });
+
+    // 4. Delete the worker account
+    await Worker.findByIdAndDelete(workerId);
+
+    console.log(`🗑️ Worker ${worker.name} account and all related data deleted successfully`);
+
+    return res.status(200).json({ 
+      message: "Account deleted successfully",
+      status: 200
+    });
+
+  } catch (error) {
+    console.error("Error deleting worker profile:", error);
+    return res.status(500).json({ 
+      message: "Server error occurred while deleting account",
+      error: error.message 
+    });
   }
 };
 

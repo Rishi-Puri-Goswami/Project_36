@@ -19,6 +19,8 @@ const WorkerDashboard = () => {
   const [userLocation, setUserLocation] = useState(null)
   const [selectedJob, setSelectedJob] = useState(null)
   const [showJobDetailsModal, setShowJobDetailsModal] = useState(false)
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
+  const [sortBy, setSortBy] = useState('latest')
   const [filters, setFilters] = useState({
     workType: [],
     location: '',
@@ -96,9 +98,15 @@ const WorkerDashboard = () => {
       // Build query parameters
       const params = new URLSearchParams()
       
-      // Add location parameters if available
+      // Check if we should apply location filter
       const savedLocation = localStorage.getItem('workerLocation')
-      if (savedLocation) {
+      const hasSearchQuery = filters.searchQuery.trim()
+      
+      // If there's a search query, fetch all jobs (no location filter)
+      // If no search query, try location-based first, then fallback to all jobs
+      const shouldApplyLocationFilter = !hasSearchQuery && savedLocation
+      
+      if (shouldApplyLocationFilter) {
         try {
           const location = JSON.parse(savedLocation)
           params.append('latitude', location.latitude)
@@ -136,7 +144,44 @@ const WorkerDashboard = () => {
 
       if (response.ok) {
         const data = await response.json()
-        setJobs(data.jobs || [])
+        let jobsData = data.jobs || []
+        
+        // If no jobs found within 30km and no search query, fetch all jobs
+        if (jobsData.length === 0 && shouldApplyLocationFilter && !hasSearchQuery) {
+          console.log('📍 No jobs found within 30km, fetching all available jobs...')
+          
+          // Remove location parameters and fetch all jobs
+          const allJobsParams = new URLSearchParams()
+          
+          if (filters.workType.length > 0) {
+            allJobsParams.append('workType', filters.workType[0])
+          }
+          
+          if (filters.location.trim()) {
+            allJobsParams.append('location', filters.location)
+          }
+          
+          if (filters.salaryRange && filters.salaryRange !== 'all') {
+            allJobsParams.append('salaryRange', filters.salaryRange)
+          }
+
+          const allJobsResponse = await fetch(`${API_URL}/clients/jobs/available?${allJobsParams.toString()}`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
+
+          if (allJobsResponse.ok) {
+            const allJobsData = await allJobsResponse.json()
+            jobsData = allJobsData.jobs || []
+            console.log('📍 Found', jobsData.length, 'jobs available globally')
+          }
+        }
+        
+        setJobs(jobsData)
+        console.log("jobs data", jobsData);
       }
     } catch (error) {
       console.error('Error fetching jobs:', error)
@@ -227,7 +272,143 @@ const WorkerDashboard = () => {
     setFilteredJobs(filtered)
   }
 
-  // Fuzzy matching function for spelling tolerance
+  // Function to parse salary range and return a comparable number
+  const parseSalaryRange = (salaryRange) => {
+    if (!salaryRange) return 0
+    
+    // Handle different salary range formats
+    if (salaryRange.includes('30000+')) return 30000
+    if (salaryRange.includes('20000-30000')) return 25000 // midpoint
+    if (salaryRange.includes('10000-20000')) return 15000 // midpoint
+    if (salaryRange.includes('0-10000')) return 5000 // midpoint
+    
+    // Try to extract numbers from the string
+    const numbers = salaryRange.match(/\d+/g)
+    if (numbers && numbers.length > 0) {
+      return parseInt(numbers[0])
+    }
+    
+    return 0
+  }
+
+  // Function to apply sorting to filtered jobs
+  const applySorting = (jobsToSort) => {
+    let sorted = [...jobsToSort]
+
+    switch (sortBy) {
+      case 'salary-high':
+        sorted.sort((a, b) => {
+          const salaryA = parseSalaryRange(a.salaryRange)
+          const salaryB = parseSalaryRange(b.salaryRange)
+          return salaryB - salaryA // High to low
+        })
+        break
+      case 'salary-low':
+        sorted.sort((a, b) => {
+          const salaryA = parseSalaryRange(a.salaryRange)
+          const salaryB = parseSalaryRange(b.salaryRange)
+          return salaryA - salaryB // Low to high
+        })
+        break
+      case 'latest':
+      default:
+        sorted.sort((a, b) => {
+          return new Date(b.createdAt) - new Date(a.createdAt) // Latest first
+        })
+        break
+    }
+
+    return sorted
+  }
+
+  // Apply filters and sorting whenever jobs or filters change
+  useEffect(() => {
+    let filtered = [...jobs]
+
+    // Filter by work type (case-insensitive)
+    if (filters.workType.length > 0) {
+      filtered = filtered.filter(job => 
+        filters.workType.some(selectedType => 
+          job.workType && job.workType.toLowerCase() === selectedType.toLowerCase()
+        )
+      )
+    }
+
+    // Filter by location (case-insensitive)
+    if (filters.location.trim()) {
+      const locationLower = filters.location.toLowerCase()
+      filtered = filtered.filter(job => 
+        job.location && job.location.toLowerCase().includes(locationLower)
+      )
+    }
+
+    // Filter by salary range (case-insensitive)
+    if (filters.salaryRange && filters.salaryRange !== 'all') {
+      filtered = filtered.filter(job => 
+        job.salaryRange && job.salaryRange.toLowerCase() === filters.salaryRange.toLowerCase()
+      )
+    }
+
+    // Advanced search with fuzzy matching (case-insensitive, partial match, spelling tolerance)
+    if (filters.searchQuery.trim()) {
+      const query = filters.searchQuery.toLowerCase().trim()
+      
+      filtered = filtered.filter(job => {
+        // Get searchable fields
+        const description = (job.description || '').toLowerCase()
+        const workType = (job.workType || '').toLowerCase()
+        const location = (job.location || '').toLowerCase()
+        const companyName = (job.clientId?.companyName || job.clientId?.name || '').toLowerCase()
+        
+        // Exact match or partial match
+        if (description.includes(query) || 
+            workType.includes(query) || 
+            location.includes(query) ||
+            companyName.includes(query)) {
+          return true
+        }
+        
+        // Split query into words for better matching
+        const queryWords = query.split(/\s+/)
+        
+        // Check if any query word matches (partial)
+        const matchesAnyWord = queryWords.some(word => 
+          description.includes(word) || 
+          workType.includes(word) || 
+          location.includes(word) ||
+          companyName.includes(word)
+        )
+        
+        if (matchesAnyWord) {
+          return true
+        }
+        
+        // Fuzzy matching for spelling errors
+        // Check if query is similar to workType (for misspellings like "plum" -> "plumber")
+        if (isFuzzyMatch(query, workType) || 
+            isFuzzyMatch(query, description) ||
+            isFuzzyMatch(query, location)) {
+          return true
+        }
+        
+        // Check each word for fuzzy match
+        const matchesFuzzyWord = queryWords.some(word => 
+          isFuzzyMatch(word, workType) || 
+          isFuzzyMatch(word, description.split(/\s+/).join(' ')) ||
+          isFuzzyMatch(word, location)
+        )
+        
+        return matchesFuzzyWord
+      })
+    }
+
+    // Apply sorting
+    const sortedAndFiltered = applySorting(filtered)
+    
+    setFilteredJobs(sortedAndFiltered)
+  }, [jobs, filters, sortBy])
+
+  // Fuzzy matching function for search
   const isFuzzyMatch = (query, target) => {
     if (!query || !target) return false
     
@@ -383,7 +564,7 @@ const WorkerDashboard = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
@@ -393,19 +574,19 @@ const WorkerDashboard = () => {
   const workTypes = ['Plumber', 'Electrician', 'Carpenter', 'Painter', 'Mason', 'Welder', 'Driver', 'Helper', 'Cook', 'Cleaner', 'Other']
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen  rubik-regular bg-neutral-200">
       {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
+      <header className=" backdrop-blur-[8px] shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           {/* Left: App Name */}
-          <div className="flex items-center gap-3">
-            <div className="bg-green-600 rounded-lg p-2">
+          <div className="flex items-center gap-3 ">
+            <div className="bg-black rounded-lg p-2">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-800">YaarCircle</h1>
+              <h1 className="text-xl  font-bold text-gray-800">YaarCircle</h1>
               <p className="text-xs text-gray-500">Worker Dashboard</p>
             </div>
           </div>
@@ -425,7 +606,7 @@ const WorkerDashboard = () => {
                 onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
                 onFocus={() => setShowSearchTips(true)}
                 onBlur={() => setTimeout(() => setShowSearchTips(false), 200)}
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent"
               />
               {filters.searchQuery && (
                 <button
@@ -443,26 +624,26 @@ const WorkerDashboard = () => {
             {showSearchTips && !filters.searchQuery && (
               <div className="absolute top-full mt-2 left-0 right-0 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-50">
                 <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Smart Search Tips
                 </h4>
                 <ul className="text-xs text-gray-600 space-y-1">
                   <li className="flex items-start gap-2">
-                    <span className="text-green-600 mt-0.5">•</span>
+                    <span className="text-gray-900 mt-0.5">•</span>
                     <span><strong>Partial words:</strong> "plum" finds "Plumber"</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-green-600 mt-0.5">•</span>
+                    <span className="text-gray-900 mt-0.5">•</span>
                     <span><strong>Case insensitive:</strong> "PAINT" = "paint" = "Painter"</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-green-600 mt-0.5">•</span>
+                    <span className="text-gray-900 mt-0.5">•</span>
                     <span><strong>Spelling tolerant:</strong> "electrisian" finds "Electrician"</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-green-600 mt-0.5">•</span>
+                    <span className="text-gray-900 mt-0.5">•</span>
                     <span><strong>Multi-field:</strong> Searches work type, location, description</span>
                   </li>
                 </ul>
@@ -472,10 +653,10 @@ const WorkerDashboard = () => {
 
           {/* Right: Navigation & Profile */}
           <div className="flex items-center gap-3">
-            {/* Home Button */}
+            {/* Home Button - Hidden on mobile */}
             <button 
               onClick={() => navigate('/worker/dashboard')}
-              className="flex items-center gap-2 px-4 py-2 text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+              className="hidden md:flex items-center gap-2 px-4 py-2 text-gray-900 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
               title="Home"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -486,14 +667,14 @@ const WorkerDashboard = () => {
 
             {/* Notifications */}
             <button 
-              className="relative p-2 text-gray-700 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+              className="relative p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
               title="Notifications"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
               {/* Notification Badge */}
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
             </button>
 
             <div className="flex items-center gap-4">
@@ -508,7 +689,7 @@ const WorkerDashboard = () => {
                 onClick={() => navigate('/worker/profile')}
                 title="View Profile"
               >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-shadow">
+                <div className="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-shadow">
                   {worker?.profilePicture ? (
                     <img 
                       src={worker.profilePicture} 
@@ -525,7 +706,7 @@ const WorkerDashboard = () => {
               {/* Menu Button */}
               <button 
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-2 text-gray-700 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                className="p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
                 title="Menu"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -597,7 +778,7 @@ const WorkerDashboard = () => {
 
               <button 
                 onClick={() => {
-                  // Navigate to settings
+                  navigate('/worker/settings')
                   setIsMenuOpen(false)
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
@@ -633,7 +814,7 @@ const WorkerDashboard = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-green-600 to-blue-600 rounded-lg shadow-md p-6 mb-6 text-white">
+        <div className="bg-blue-800 rounded-lg shadow-md p-6 mb-6 text-white">
           <h2 className="text-2xl font-bold mb-1">Welcome back, {worker?.name}! 👋</h2>
           <p className="text-green-100">Ready to find your next opportunity?</p>
         </div>
@@ -651,7 +832,7 @@ const WorkerDashboard = () => {
               placeholder="Search jobs... (Try: plum, paint, electric)"
               value={filters.searchQuery}
               onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
-              className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white shadow-sm"
+              className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent bg-white shadow-sm"
             />
             {filters.searchQuery && (
               <button
@@ -664,6 +845,24 @@ const WorkerDashboard = () => {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Mobile Filter Button */}
+        <div className="md:hidden mb-4">
+          <button
+            onClick={() => setShowMobileFilters(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-800 hover:bg-blue-900 text-white rounded-lg transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span className="font-medium">Filters</span>
+            {(filters.workType.length > 0 || filters.location || filters.salaryRange) && (
+              <span className="ml-2 bg-gray-600 text-white text-xs px-2 py-1 rounded-full">
+                {filters.workType.length + (filters.location ? 1 : 0) + (filters.salaryRange ? 1 : 0)}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Success/Error Message */}
@@ -695,7 +894,7 @@ const WorkerDashboard = () => {
                 <h3 className="font-bold text-gray-800">Filters</h3>
                 <button 
                   onClick={clearFilters}
-                  className="text-xs text-green-600 hover:text-green-700 font-semibold"
+                  className="text-xs text-gray-900 hover:text-gray-700 font-semibold"
                 >
                   Clear all
                 </button>
@@ -718,7 +917,7 @@ const WorkerDashboard = () => {
                       placeholder="Search work type..."
                       value={workTypeSearch}
                       onChange={(e) => setWorkTypeSearch(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -732,7 +931,7 @@ const WorkerDashboard = () => {
                           type="checkbox"
                           checked={filters.workType.some(selected => selected.toLowerCase() === type.toLowerCase())}
                           onChange={() => handleWorkTypeToggle(type)}
-                          className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                          className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-500"
                         />
                         <span className="ml-2 text-sm text-gray-700">{type}</span>
                       </label>
@@ -751,7 +950,7 @@ const WorkerDashboard = () => {
                   placeholder="Enter location"
                   value={filters.location}
                   onChange={(e) => handleFilterChange('location', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent"
                 />
               </div>
 
@@ -761,7 +960,7 @@ const WorkerDashboard = () => {
                 <select
                   value={filters.salaryRange}
                   onChange={(e) => handleFilterChange('salaryRange', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent"
                 >
                   <option value="">All Ranges</option>
                   <option value="0-10000">₹0 - ₹10,000</option>
@@ -779,10 +978,14 @@ const WorkerDashboard = () => {
               <h2 className="text-xl font-bold text-gray-800">
                 {filteredJobs.length} Job{filteredJobs.length !== 1 ? 's' : ''} Available
               </h2>
-              <select className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-                <option>Sort by: Latest</option>
-                <option>Sort by: Salary (High to Low)</option>
-                <option>Sort by: Salary (Low to High)</option>
+              <select 
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800"
+              >
+                <option value="latest">Sort by: Latest</option>
+                <option value="salary-high">Sort by: Salary (High to Low)</option>
+                <option value="salary-low">Sort by: Salary (Low to High)</option>
               </select>
             </div>
 
@@ -790,7 +993,7 @@ const WorkerDashboard = () => {
             <div className="space-y-4">
               {loading ? (
                 <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
                   <p className="mt-4 text-gray-600">Loading jobs...</p>
                 </div>
               ) : filteredJobs.length === 0 ? (
@@ -809,7 +1012,7 @@ const WorkerDashboard = () => {
                         <h3 className="text-lg font-bold text-gray-800 mb-1">{job.workType}</h3>
                         <p className="text-sm text-gray-500 mb-2">Posted by: {job.clientId?.companyName || job.clientId?.name || 'Company'}</p>
                       </div>
-                      <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                      <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">
                         {job.numberOfWorkers} Position{job.numberOfWorkers > 1 ? 's' : ''}
                       </span>
                     </div>
@@ -823,7 +1026,7 @@ const WorkerDashboard = () => {
                         <span>{job.location || 'Location not specified'}</span>
                       </div>
                       {job.distance !== undefined && (
-                        <div className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                        <div className="flex items-center gap-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-full">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                           </svg>
@@ -862,8 +1065,8 @@ const WorkerDashboard = () => {
                             job.workerApplications?.includes(worker?._id)
                               ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
                               : applyingJobId === job._id
-                              ? 'bg-green-400 text-white cursor-wait'
-                              : 'bg-green-600 text-white hover:bg-green-700'
+                              ? 'bg-gray-400 text-white cursor-wait'
+                              : 'bg-black text-white hover:bg-gray-900'
                           }`}
                         >
                           {job.workerApplications?.includes(worker?._id)
@@ -887,7 +1090,7 @@ const WorkerDashboard = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-8">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-t-2xl">
+            <div className="bg-blue-800 text-white p-6 rounded-t-2xl">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <h2 className="text-2xl font-bold mb-2">{selectedJob.workType}</h2>
@@ -910,36 +1113,36 @@ const WorkerDashboard = () => {
             <div className="p-6 max-h-[70vh] overflow-y-auto">
               {/* Job Summary */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
                   <div className="flex items-center gap-2 mb-2">
-                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                     <span className="text-sm text-gray-600 font-medium">Positions</span>
                   </div>
-                  <p className="text-2xl font-bold text-green-700">{selectedJob.numberOfWorkers}</p>
+                  <p className="text-2xl font-bold text-gray-900">{selectedJob.numberOfWorkers}</p>
                 </div>
                 
                 {selectedJob.salaryRange && (
-                  <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg p-4 border border-yellow-200">
+                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
                     <div className="flex items-center gap-2 mb-2">
-                      <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <span className="text-sm text-gray-600 font-medium">Salary</span>
                     </div>
-                    <p className="text-lg font-bold text-yellow-700">{selectedJob.salaryRange}</p>
+                    <p className="text-lg font-bold text-gray-900">{selectedJob.salaryRange}</p>
                   </div>
                 )}
                 
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 border border-gray-200">
                   <div className="flex items-center gap-2 mb-2">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     <span className="text-sm text-gray-600 font-medium">Posted</span>
                   </div>
-                  <p className="text-sm font-semibold text-blue-700">
+                  <p className="text-sm font-semibold text-gray-900">
                     {new Date(selectedJob.createdAt).toLocaleDateString('en-US', { 
                       year: 'numeric', 
                       month: 'short', 
@@ -952,7 +1155,7 @@ const WorkerDashboard = () => {
               {/* Location */}
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
@@ -961,7 +1164,7 @@ const WorkerDashboard = () => {
                 <p className="text-gray-700 bg-gray-50 rounded-lg p-3">
                   {selectedJob.location || 'Location not specified'}
                   {selectedJob.distance !== undefined && (
-                    <span className="ml-3 text-green-600 font-semibold">
+                    <span className="ml-3 text-gray-900 font-semibold">
                       • {selectedJob.distance.toFixed(1)}km away
                     </span>
                   )}
@@ -971,7 +1174,7 @@ const WorkerDashboard = () => {
               {/* Description */}
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   Job Description
@@ -985,15 +1188,15 @@ const WorkerDashboard = () => {
               {selectedJob.clientId && (
                 <div className="mb-6 border-t pt-6">
                   <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                     Client Information
                   </h3>
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 space-y-2 border border-green-200">
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-4 space-y-2 border border-gray-200">
                     {selectedJob.clientId.companyName && (
                       <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
                         <span className="font-medium text-gray-700">Company:</span>
@@ -1002,7 +1205,7 @@ const WorkerDashboard = () => {
                     )}
                     {selectedJob.clientId.name && (
                       <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                         <span className="font-medium text-gray-700">Contact:</span>
@@ -1030,12 +1233,133 @@ const WorkerDashboard = () => {
                   className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-colors ${
                     selectedJob.workerApplications?.includes(worker?._id)
                       ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                      : 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-black text-white hover:bg-gray-900'
                   }`}
                 >
                   {selectedJob.workerApplications?.includes(worker?._id)
                     ? 'Already Applied ✓'
                     : 'Apply for This Job'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Filter Modal */}
+      {showMobileFilters && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end z-50 md:hidden">
+          <div className="bg-white rounded-t-2xl w-full max-h-[80vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800">Filters</h2>
+              <button
+                onClick={() => setShowMobileFilters(false)}
+                className="p-2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-4 max-h-[60vh] overflow-y-auto">
+              {/* Clear All Button */}
+              <div className="mb-4">
+                <button
+                  onClick={clearFilters}
+                  className="w-full py-2 text-gray-900 hover:text-gray-700 font-semibold border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Clear All Filters
+                </button>
+              </div>
+
+              {/* Work Type Filter */}
+              <div className="mb-6">
+                <h4 className="text-base font-semibold text-gray-700 mb-3">Work Type</h4>
+
+                {/* Search bar for work types */}
+                <div className="mb-3">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Search work type..."
+                      value={workTypeSearch}
+                      onChange={(e) => setWorkTypeSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3 max-h-48 overflow-y-auto">
+                  {workTypes
+                    .filter(type => type.toLowerCase().includes(workTypeSearch.toLowerCase()))
+                    .map(type => (
+                      <label key={type} className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded-lg">
+                        <input
+                          type="checkbox"
+                          checked={filters.workType.some(selected => selected.toLowerCase() === type.toLowerCase())}
+                          onChange={() => handleWorkTypeToggle(type)}
+                          className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-500"
+                        />
+                        <span className="ml-3 text-sm text-gray-700">{type}</span>
+                      </label>
+                    ))}
+                  {workTypes.filter(type => type.toLowerCase().includes(workTypeSearch.toLowerCase())).length === 0 && (
+                    <p className="text-sm text-gray-500 text-center py-4">No work types found</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Location Filter */}
+              <div className="mb-6">
+                <h4 className="text-base font-semibold text-gray-700 mb-3">Location</h4>
+                <input
+                  type="text"
+                  placeholder="Enter location"
+                  value={filters.location}
+                  onChange={(e) => handleFilterChange('location', e.target.value)}
+                  className="w-full px-3 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent"
+                />
+              </div>
+
+              {/* Salary Range Filter */}
+              <div className="mb-6">
+                <h4 className="text-base font-semibold text-gray-700 mb-3">Salary Range</h4>
+                <select
+                  value={filters.salaryRange}
+                  onChange={(e) => handleFilterChange('salaryRange', e.target.value)}
+                  className="w-full px-3 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent"
+                >
+                  <option value="">All Ranges</option>
+                  <option value="0-10000">₹0 - ₹10,000</option>
+                  <option value="10000-20000">₹10,000 - ₹20,000</option>
+                  <option value="20000-30000">₹20,000 - ₹30,000</option>
+                  <option value="30000+">₹30,000+</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowMobileFilters(false)}
+                  className="flex-1 px-4 py-3 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => setShowMobileFilters(false)}
+                  className="flex-1 px-4 py-3 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors font-medium"
+                >
+                  Apply Filters
                 </button>
               </div>
             </div>

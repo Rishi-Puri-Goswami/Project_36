@@ -185,18 +185,22 @@ const WorkerRegister = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen rubik-regular bg-neutral-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl w-full">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-green-600 rounded-full p-4">
+            <div className="bg-black rounded-full p-4">
               <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
           </div>
-          <h2 className="text-3xl font-extrabold text-gray-900">Worker Registration</h2>
+          <div>
+            <h1 className="text-xl font-bold text-gray-800">YaarCircle</h1>
+            <p className="text-xs text-gray-500">Worker Portal</p>
+          </div>
+          <h2 className="text-3xl font-extrabold text-gray-900 mt-4">Worker Registration</h2>
           <p className="mt-2 text-sm text-gray-600">Join YaarCircle and find work opportunities</p>
         </div>
 
@@ -223,7 +227,7 @@ const WorkerRegister = () => {
                 onChange={handleChange}
                 required
                 placeholder="Enter your full name"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
               />
             </div>
 
@@ -240,7 +244,7 @@ const WorkerRegister = () => {
                 onChange={handleChange}
                 required
                 placeholder="+91 9876543210"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
               />
             </div>
 
@@ -256,7 +260,7 @@ const WorkerRegister = () => {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="your.email@example.com"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
               />
             </div>
 
@@ -271,7 +275,7 @@ const WorkerRegister = () => {
                 value={formData.workType}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
               >
                 <option value="">Select your work type</option>
                 {workTypes.map(type => (
@@ -293,7 +297,7 @@ const WorkerRegister = () => {
                   value={formData.location}
                   onChange={handleChange}
                   placeholder="e.g., Mumbai, Maharashtra"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
                 />
               </div>
               <div>
@@ -308,7 +312,7 @@ const WorkerRegister = () => {
                   onChange={handleChange}
                   placeholder="400001"
                   maxLength="6"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
                 />
               </div>
             </div>
@@ -325,7 +329,7 @@ const WorkerRegister = () => {
                 onChange={handleChange}
                 rows="3"
                 placeholder="Tell us about yourself, your skills, and work experience..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all resize-none"
               />
             </div>
 
@@ -343,7 +347,7 @@ const WorkerRegister = () => {
                   onChange={handleChange}
                   min="0"
                   placeholder="0"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
                 />
               </div>
               <div>
@@ -359,7 +363,7 @@ const WorkerRegister = () => {
                   min="18"
                   max="100"
                   placeholder="18"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
                 />
               </div>
             </div>
@@ -377,7 +381,7 @@ const WorkerRegister = () => {
                 onChange={handleChange}
                 required
                 placeholder="At least 6 characters"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
               />
             </div>
 
@@ -394,7 +398,7 @@ const WorkerRegister = () => {
                 onChange={handleChange}
                 required
                 placeholder="Re-enter your password"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
               />
             </div>
 
@@ -402,8 +406,8 @@ const WorkerRegister = () => {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-semibold transition-colors ${
-                loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700'
+              className={`w-full flex items-center justify-center gap-2 px-6 py-3 bg-black text-white rounded-lg font-semibold transition-colors ${
+                loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-900'
               }`}
             >
               {loading ? (
@@ -426,7 +430,7 @@ const WorkerRegister = () => {
               Already have an account?{' '}
               <button
                 onClick={() => navigate('/worker/login')}
-                className="font-semibold text-green-600 hover:text-green-700 transition-colors"
+                className="font-semibold text-blue-800 hover:text-blue-900 transition-colors"
               >
                 Login here
               </button>
@@ -450,8 +454,8 @@ const WorkerRegister = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
             <div className="text-center mb-6">
-              <div className="bg-green-100 rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-blue-100 rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                <svg className="w-8 h-8 text-blue-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
               </div>
@@ -480,7 +484,7 @@ const WorkerRegister = () => {
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   maxLength="6"
                   placeholder="000000"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-center text-2xl font-semibold tracking-widest focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-center text-2xl font-semibold tracking-widest focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
                   autoFocus
                 />
               </div>
@@ -488,8 +492,8 @@ const WorkerRegister = () => {
               <button
                 type="submit"
                 disabled={otpLoading}
-                className={`w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold transition-colors mb-4 ${
-                  otpLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700'
+                className={`w-full px-6 py-3 bg-black text-white rounded-lg font-semibold transition-colors mb-4 ${
+                  otpLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-900'
                 }`}
               >
                 {otpLoading ? 'Verifying...' : 'Verify OTP'}
@@ -499,7 +503,7 @@ const WorkerRegister = () => {
                 <button
                   type="button"
                   onClick={handleResendOtp}
-                  className="text-sm text-green-600 hover:text-green-700 font-semibold transition-colors"
+                  className="text-sm text-blue-800 hover:text-blue-900 font-semibold transition-colors"
                 >
                   Resend OTP
                 </button>

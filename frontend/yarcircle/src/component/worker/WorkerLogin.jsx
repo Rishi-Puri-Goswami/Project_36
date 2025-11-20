@@ -77,18 +77,22 @@ const WorkerLogin = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen rubik-regular bg-neutral-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-green-600 rounded-full p-4">
+            <div className="bg-black rounded-full p-4">
               <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
           </div>
-          <h2 className="text-3xl font-extrabold text-gray-900">Worker Login</h2>
+          <div>
+            <h1 className="text-xl font-bold text-gray-800">YaarCircle</h1>
+            <p className="text-xs text-gray-500">Worker Portal</p>
+          </div>
+          <h2 className="text-3xl font-extrabold text-gray-900 mt-4">Worker Login</h2>
           <p className="mt-2 text-sm text-gray-600">Sign in to your YaarCircle worker account</p>
         </div>
 
@@ -121,7 +125,7 @@ const WorkerLogin = () => {
                   onChange={handleChange}
                   required
                   placeholder="+91 9876543210"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
                 />
               </div>
             </div>
@@ -145,7 +149,7 @@ const WorkerLogin = () => {
                   onChange={handleChange}
                   required
                   placeholder="Enter your password"
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
                 />
                 <button
                   type="button"
@@ -173,7 +177,7 @@ const WorkerLogin = () => {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-800 focus:ring-blue-800 border-gray-300 rounded"
                 />
                 <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
                   Remember me
@@ -181,7 +185,7 @@ const WorkerLogin = () => {
               </div>
               <button
                 type="button"
-                className="text-sm font-semibold text-green-600 hover:text-green-700 transition-colors"
+                className="text-sm font-semibold text-blue-800 hover:text-blue-900 transition-colors"
               >
                 Forgot password?
               </button>
@@ -191,8 +195,8 @@ const WorkerLogin = () => {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-semibold transition-colors ${
-                loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700'
+              className={`w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-700 text-white rounded-lg font-semibold transition-colors ${
+                loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-900'
               }`}
             >
               {loading ? (
@@ -230,7 +234,7 @@ const WorkerLogin = () => {
           <div className="mt-6">
             <button
               onClick={() => navigate('/worker/register')}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 border-2 border-green-600 text-green-600 rounded-lg font-semibold hover:bg-green-50 transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 border-2 border-blue-800 text-blue-800 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -251,14 +255,14 @@ const WorkerLogin = () => {
         </div>
 
         {/* Additional Info */}
-        <div className="mt-8 bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 text-blue-800 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
-              <h4 className="text-sm font-semibold text-green-900 mb-1">Need Help?</h4>
-              <p className="text-xs text-green-700">
+              <h4 className="text-sm font-semibold text-blue-900 mb-1">Need Help?</h4>
+              <p className="text-xs text-blue-700">
                 If you're having trouble logging in, please contact our support team or try resetting your password.
               </p>
             </div>

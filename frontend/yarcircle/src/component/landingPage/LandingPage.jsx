@@ -23,11 +23,11 @@ const LandingPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-6">
       <div className="max-w-6xl w-full">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold text-gray-800 mb-4">
+          <h1 className="text-5xl font-bold text-gray-900 mb-4">
             Welcome to YaarCircle
           </h1>
           <p className="text-xl text-gray-600">
@@ -39,16 +39,16 @@ const LandingPage = () => {
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           
           {/* Client Option */}
-          <div 
+          <div
             onClick={handleClientClick}
-            className="bg-white rounded-2xl shadow-xl p-8 cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-2xl group"
+            className="bg-white rounded-2xl shadow-lg p-8 cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-2xl group"
           >
             <div className="flex flex-col items-center text-center">
-              <div className="bg-blue-100 rounded-full p-6 mb-6 group-hover:bg-blue-200 transition-colors">
-                <svg 
-                  className="w-16 h-16 text-blue-600" 
-                  fill="none" 
-                  stroke="currentColor" 
+              <div className="bg-gray-100 rounded-full p-6 mb-6 group-hover:bg-gray-200 transition-colors">
+                <svg
+                  className="w-16 h-16 text-blue-800"
+                  fill="none"
+                  stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path 
@@ -70,42 +70,42 @@ const LandingPage = () => {
               
               <ul className="text-left text-gray-600 space-y-2 mb-8">
                 <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   Post job requirements
                 </li>
                 <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   Find skilled workers
                 </li>
                 <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   Manage your projects
                 </li>
               </ul>
               
-              <button className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors w-full">
+              <button className="bg-blue-800 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-900 transition-colors w-full">
                 Continue as Client
               </button>
             </div>
           </div>
 
           {/* Worker Option */}
-          <div 
+          <div
             onClick={handleWorkerClick}
-            className="bg-white rounded-2xl shadow-xl p-8 cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-2xl group"
+            className="bg-white rounded-2xl shadow-lg p-8 cursor-pointer transform transition-all duration-300 hover:scale-105 hover:shadow-2xl group"
           >
             <div className="flex flex-col items-center text-center">
-              <div className="bg-green-100 rounded-full p-6 mb-6 group-hover:bg-green-200 transition-colors">
-                <svg 
-                  className="w-16 h-16 text-green-600" 
-                  fill="none" 
-                  stroke="currentColor" 
+              <div className="bg-gray-100 rounded-full p-6 mb-6 group-hover:bg-gray-200 transition-colors">
+                <svg
+                  className="w-16 h-16 text-blue-800"
+                  fill="none"
+                  stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path 
@@ -127,26 +127,26 @@ const LandingPage = () => {
               
               <ul className="text-left text-gray-600 space-y-2 mb-8">
                 <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   Browse available jobs
                 </li>
                 <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   Apply to projects
                 </li>
                 <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   Build your profile
                 </li>
               </ul>
               
-              <button className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors w-full">
+              <button className="bg-blue-800 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-900 transition-colors w-full">
                 Continue as Worker
               </button>
             </div>

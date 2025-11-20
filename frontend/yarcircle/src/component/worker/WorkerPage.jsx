@@ -10,20 +10,25 @@ const WorkerPage = () => {
     if (isWorkerAuthenticated()) {
       navigate('/worker/dashboard')
     }
-  }, [navigate])
+  }, [navigate]);
+
+
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
+    <div className="min-h-screen rubik-regular bg-neutral-100">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="backdrop-blur-2xl shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-green-600 rounded-lg p-2">
+            <div className="bg-black rounded-lg p-2">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-green-600">YaarCircle - Worker</h1>
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">YaarCircle</h1>
+              <p className="text-xs text-gray-500">Worker Portal</p>
+            </div>
           </div>
           <button 
             onClick={() => navigate('/')}
@@ -41,7 +46,7 @@ const WorkerPage = () => {
       <main className="max-w-6xl mx-auto px-4 py-12">
         {/* Hero Section */}
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">
+          <h2 className="text-4xl font-bold text-gray-900 mb-4 bg-gradient-to-r from-gray-900 via-blue-800 to-cyan-600 bg-clip-text text-transparent">
             Find Your Next Opportunity
           </h2>
           <p className="text-xl text-gray-600 mb-8">
@@ -54,8 +59,8 @@ const WorkerPage = () => {
           {/* Login Card */}
           <div className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-shadow">
             <div className="flex justify-center mb-6">
-              <div className="bg-green-100 rounded-full p-4">
-                <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-white rounded-full p-4">
+                <svg className="w-12 h-12 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                 </svg>
               </div>
@@ -66,7 +71,7 @@ const WorkerPage = () => {
             </p>
             <button
               onClick={() => navigate('/worker/login')}
-              className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+              className="w-full px-6 py-3 bg-[#1d4ed8] text-white rounded-lg font-semibold hover:bg-gray-900 transition-colors flex items-center justify-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
@@ -76,10 +81,10 @@ const WorkerPage = () => {
           </div>
 
           {/* Register Card */}
-          <div className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-shadow border-2 border-green-200">
+          <div className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-shadow border-2 border-gray-200">
             <div className="flex justify-center mb-6">
-              <div className="bg-blue-100 rounded-full p-4">
-                <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-white rounded-full p-4">
+                <svg className="w-12 h-12 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                 </svg>
               </div>
@@ -90,7 +95,7 @@ const WorkerPage = () => {
             </p>
             <button
               onClick={() => navigate('/worker/register')}
-              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              className="w-full px-6 py-3  text-white rounded-lg font-semibold hover:bg-black  bg-blue-800 transition-colors flex items-center justify-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -105,8 +110,8 @@ const WorkerPage = () => {
           <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Why Join YaarCircle?</h3>
           <div className="grid md:grid-cols-3 gap-6">
             <div className="text-center">
-              <div className="bg-green-100 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-cyan-600 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
@@ -115,8 +120,8 @@ const WorkerPage = () => {
             </div>
 
             <div className="text-center">
-              <div className="bg-blue-100 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-blue-800/90 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
@@ -125,8 +130,8 @@ const WorkerPage = () => {
             </div>
 
             <div className="text-center">
-              <div className="bg-purple-100 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-indigo-700 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>

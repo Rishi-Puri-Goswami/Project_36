@@ -6,6 +6,8 @@ import {
   loginWorker,
   getWorkerProfile,
   updateWorkerProfile,
+  changeWorkerPassword,
+  deleteWorkerProfile,
   submitWorkerProfile, 
   getWorkerById, 
   listApprovedWorkers,
@@ -15,7 +17,8 @@ import {
   deleteWorkerPost,
   getAllWorkerPosts,
   updateWorkerLocation,
-  uploadWorkerProfilePicture
+  uploadWorkerProfilePicture,
+  uploadWorkerCoverPhoto
 } from "../controllers/workerController.js";
 import { upload } from "../middlewares/uploads/upload.js";
 import { worker_auth } from "../middlewares/worker_middlewares/worker_auth.js";
@@ -29,12 +32,15 @@ workerrouter.post('/resend-otp', resendWorkerOtp);
 workerrouter.post('/login', loginWorker);
 workerrouter.get('/profile', worker_auth, getWorkerProfile);
 workerrouter.put('/update-profile', worker_auth, updateWorkerProfile);
+workerrouter.put('/change-password', worker_auth, changeWorkerPassword);
+workerrouter.delete('/delete-profile', worker_auth, deleteWorkerProfile);
 
 // ============= LOCATION ROUTES =============
 workerrouter.post('/update-location', worker_auth, updateWorkerLocation);
 
 // ============= PROFILE PICTURE UPLOAD =============
 workerrouter.post('/upload-profile-picture', worker_auth, upload.single('profilePicture'), uploadWorkerProfilePicture);
+workerrouter.post('/upload-cover-photo', worker_auth, upload.single('coverPhoto'), uploadWorkerCoverPhoto);
 
 // ============= WORKER POST ROUTES (Must come before /:id route) =============
 workerrouter.post('/create-post', worker_auth, upload.array('postImages', 5), createWorkerPost); // Allow up to 5 images

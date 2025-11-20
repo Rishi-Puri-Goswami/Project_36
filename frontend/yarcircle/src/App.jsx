@@ -20,6 +20,7 @@ import WorkerLogin from './component/worker/WorkerLogin'
 import WorkerRegister from './component/worker/WorkerRegister'
 import WorkerDashboard from './component/worker/WorkerDashboard'
 import WorkerProfile from './component/worker/WorkerProfile'
+import WorkerSettings from './component/worker/WorkerSettings'
 import CancellationRefund from './component/policies/CancellationRefund'
 import ContactUs from './component/policies/ContactUs'
 import Privacy from './component/policies/Privacy'
@@ -28,7 +29,7 @@ import Terms from './component/policies/Terms'
 import AdminLogin from './component/admin/AdminLogin'
 import AdminDashboard from './component/admin/AdminDashboard'
 import AdminProtectedRoute from './component/admin/AdminProtectedRoute'
-
+import "./App.css";
 const App = () => {
   // Get admin secret path from environment variable
   const adminSecretPath = import.meta.env.VITE_ADMIN_PANEL_SECRET || 'secure';
@@ -42,7 +43,7 @@ const App = () => {
             <Route path="/" element={<LandingPage />} />
             
             {/* Client Routes */}
-            <Route path="/client" element={<ClintPage />} />
+            {/* <Route path="/client" element={<ClintPage />} /> */}
             <Route path="/client/login" element={<ClintLogin />} />
             <Route path="/client/register" element={<ClintRegister />} />
             <Route path="/client/pricing" element={<PricingPage />} />
@@ -61,6 +62,7 @@ const App = () => {
             <Route path="/worker/register" element={<WorkerRegister />} />
             <Route path="/worker/dashboard" element={<WorkerDashboard />} />
             <Route path="/worker/profile" element={<WorkerProfile />} />
+            <Route path="/worker/settings" element={<WorkerSettings />} />
             
             {/* Policy Routes */}
             <Route path="/terms/cancellation-refund" element={<CancellationRefund />} />
