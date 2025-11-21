@@ -416,7 +416,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
         {(searchQuery || selectedWorkType !== 'all' || selectedLocation) && (
           <button
             onClick={clearFilters}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+            className="px-6 py-2 bg-[#1e40af] text-white rounded-lg hover:bg-[#1e40af]/90 transition-colors inline-flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -440,7 +440,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
               placeholder="Search by name, skills..."
               value={searchQuery}
               onChange={handleSearch}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e40af] focus:border-transparent"
             />
             <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -452,7 +452,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
             <select
               value={selectedWorkType}
               onChange={handleWorkTypeChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e40af] focus:border-transparent"
             >
               <option value="all">All Categories</option>
               <option value="Plumber">Plumber</option>
@@ -476,7 +476,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
               placeholder="Filter by location..."
               value={selectedLocation}
               onChange={handleLocationChange}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e40af] focus:border-transparent"
             />
             <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -489,7 +489,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
             <select
               value={sortBy}
               onChange={handleSortChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e40af] focus:border-transparent"
             >
               <option value="newest">Newest First</option>
               <option value="distance">Closest First</option>
@@ -502,7 +502,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
         {/* Filter Info and Clear Button */}
         <div className="flex items-center justify-between text-sm">
           <div className="text-gray-600">
-            Showing <span className="font-semibold text-blue-600">{currentWorkers.length}</span> of <span className="font-semibold">{workers.length}</span> workers
+            Showing <span className="font-semibold text-[#1e40af]">{currentWorkers.length}</span> of <span className="font-semibold">{workers.length}</span> workers
             {searchQuery && <span className="ml-2">• Searching for: <span className="font-semibold">"{searchQuery}"</span></span>}
             {selectedWorkType !== 'all' && <span className="ml-2">• Category: <span className="font-semibold">{selectedWorkType}</span></span>}
             {selectedLocation && <span className="ml-2">• Location: <span className="font-semibold">"{selectedLocation}"</span></span>}
@@ -561,10 +561,10 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                     <img 
                       src={worker.profilePicture} 
                       alt={worker.name}
-                      className="w-16 h-16 rounded-full object-cover border-2 border-blue-200"
+                      className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
                     />
                   ) : (
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                    <div className="w-16 h-16 bg-[#1e40af] rounded-full flex items-center justify-center text-white text-2xl font-bold">
                       {worker.name?.charAt(0).toUpperCase() || 'W'}
                     </div>
                   )}
@@ -614,22 +614,22 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                   )}
 
                   {/* Contact Info - Show limited info if locked */}
-                  <div className={`bg-gray-50 rounded-lg p-3 relative mt-4 ${!isUnlocked ? 'border-2 border-blue-200' : 'border-2 border-green-200'}`}>
+                  <div className={`bg-gray-50 rounded-lg p-3 relative mt-4 ${!isUnlocked ? 'border-2 border-gray-300' : 'border-2 border-green-200'}`}>
                     {isUnlocked ? (
                       // Unlocked - Show full contact info
                       <div className="space-y-1.5">
                         <p className="text-sm text-gray-700 flex items-center gap-2">
-                          <span className="font-medium">📞</span>
+                          <span className="font-medium">Phone:</span>
                           <span>{worker.phone || '+91 XXXXX XXXXX'}</span>
                         </p>
                         <p className="text-sm text-gray-700 flex items-center gap-2">
-                          <span className="font-medium">✉️</span>
+                          <span className="font-medium">Email:</span>
                           <span>{worker.email || 'Not provided'}</span>
                         </p>
                         {worker.pincode && (
                           <p className="text-sm text-gray-700 flex items-center gap-2">
-                            <span className="font-medium">📍</span>
-                            <span>PIN: {worker.pincode}</span>
+                            <span className="font-medium">PIN:</span>
+                            <span>{worker.pincode}</span>
                           </p>
                         )}
                       </div>
@@ -637,19 +637,19 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                       // Locked - Show first 3 letters of email and pincode
                       <div className="space-y-1.5">
                         <p className="text-xs text-gray-500 flex items-center gap-2">
-                          <span className="font-medium">📞</span>
+                          <span className="font-medium">Phone:</span>
                           <span>+91 XXXXX XXXXX</span>
                         </p>
                         <p className="text-xs text-gray-500 flex items-center gap-2">
-                          <span className="font-medium">✉️</span>
+                          <span className="font-medium">Email:</span>
                           <span>
                             {worker.email ? `${worker.email.substring(0, 3)}xxxxx@xxxxx.com` : 'xxx@xxxxx.com'}
                           </span>
                         </p>
                         {worker.pincode && (
                           <p className="text-xs text-gray-600 flex items-center gap-2 font-semibold">
-                            <span className="font-medium">📍</span>
-                            <span>PIN: {worker.pincode}</span>
+                            <span className="font-medium">PIN:</span>
+                            <span>{worker.pincode}</span>
                           </p>
                         )}
                       </div>
@@ -658,7 +658,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                     {/* Lock/Unlock indicator overlay */}
                     {!isUnlocked && (
                       <div className="absolute -top-2 -right-2">
-                        <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-semibold shadow-lg flex items-center gap-1">
+                        <span className="bg-[#1e40af] text-white px-2 py-1 rounded-full text-xs font-semibold shadow-lg flex items-center gap-1">
                           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                           </svg>
@@ -675,8 +675,8 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                   disabled={loadingWorkerDetails}
                   className={`w-full py-2.5 text-white rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
                     isUnlocked 
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600' 
-                      : 'bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600'
+                      ? 'bg-green-500 hover:bg-green-600' 
+                      : 'bg-[#1e40af] hover:bg-[#1e40af]/90'
                   }`}
                 >
                   {loadingWorkerDetails ? (
@@ -728,7 +728,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
             className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
               currentPage === 1
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-white text-blue-600 border border-blue-300 hover:bg-blue-50'
+                : 'bg-white text-[#1e40af] border border-[#1e40af]/30 hover:bg-[#1e40af]/10'
             }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -767,7 +767,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                   onClick={() => handlePageChange(pageNumber)}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                     currentPage === pageNumber
-                      ? 'bg-blue-600 text-white shadow-lg'
+                      ? 'bg-[#1e40af] text-white shadow-lg'
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
@@ -784,7 +784,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
             className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
               currentPage === totalPages
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-white text-blue-600 border border-blue-300 hover:bg-blue-50'
+                : 'bg-white text-[#1e40af] border border-[#1e40af]/30 hover:bg-[#1e40af]/10'
             }`}
           >
             Next
@@ -800,7 +800,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-8">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 rounded-t-2xl">
+            <div className="bg-[#1e40af] text-white p-6 rounded-t-2xl">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-4">
                   {/* Profile Picture */}
@@ -819,7 +819,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold">{viewingWorker.name}</h2>
-                    <p className="text-blue-100">{viewingWorker.workType}</p>
+                    <p className="text-[#1e40af]/80">{viewingWorker.workType}</p>
                     <div className="flex items-center gap-2 mt-1">
                       {viewingWorker.status === 'approved' && (
                         <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
@@ -855,15 +855,15 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="flex items-center gap-2 text-gray-700">
-                    <span className="font-medium">📞 Phone:</span>
-                    <a href={`tel:${viewingWorker.phone}`} className="text-blue-600 hover:underline font-semibold">
+                    <span className="font-medium">Phone:</span>
+                    <a href={`tel:${viewingWorker.phone}`} className="text-[#1e40af] hover:underline font-semibold">
                       {viewingWorker.phone}
                     </a>
                   </div>
                   {viewingWorker.email && (
                     <div className="flex items-center gap-2 text-gray-700">
-                      <span className="font-medium">✉️ Email:</span>
-                      <a href={`mailto:${viewingWorker.email}`} className="text-blue-600 hover:underline">
+                      <span className="font-medium">Email:</span>
+                      <a href={`mailto:${viewingWorker.email}`} className="text-[#1e40af] hover:underline">
                         {viewingWorker.email}
                       </a>
                     </div>
@@ -873,19 +873,19 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
 
               {/* Worker Details Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-[#1e40af]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    <p className="text-sm text-blue-600 font-medium">Location</p>
+                    <p className="text-sm text-[#1e40af] font-medium">Location</p>
                   </div>
                   <p className="font-semibold text-gray-800">{viewingWorker.location || 'Not specified'}</p>
                 </div>
 
                 {viewingWorker.pincode && (
-                  <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-1">
                       <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -898,7 +898,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                 )}
 
                 {(viewingWorker.yearsOfExperience !== undefined || viewingWorker.experience !== undefined) && (
-                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-1">
                       <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -912,7 +912,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                 )}
 
                 {viewingWorker.age && (
-                  <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-1">
                       <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -926,8 +926,8 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
 
               {/* Skills */}
               {viewingWorker.skills && viewingWorker.skills.length > 0 && (
-                <div className="border-2 border-indigo-200 rounded-lg p-4 bg-gradient-to-br from-indigo-50 to-white">
-                  <h4 className="font-semibold text-indigo-800 mb-3 flex items-center gap-2">
+                <div className="border-2 border-gray-200 rounded-lg p-4 bg-white">
+                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                     </svg>
@@ -937,7 +937,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                     {viewingWorker.skills.map((skill, index) => (
                       <span 
                         key={index}
-                        className="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-full text-sm font-medium border border-indigo-300"
+                        className="bg-[#1e40af]/10 text-[#1e40af] px-3 py-1.5 rounded-full text-sm font-medium border border-[#1e40af]/20"
                       >
                         {skill}
                       </span>
@@ -961,8 +961,8 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
 
               {/* Work Photos (Portfolio) */}
               {viewingWorker.workPhotos && viewingWorker.workPhotos.length > 0 && (
-                <div className="border-2 border-yellow-200 rounded-lg p-4 bg-gradient-to-br from-yellow-50 to-white">
-                  <h4 className="font-semibold text-yellow-800 mb-3 flex items-center gap-2">
+                <div className="border-2 border-gray-200 rounded-lg p-4 bg-white">
+                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
@@ -985,8 +985,8 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
 
               {/* ID Proof */}
               {viewingWorker.idProof && (
-                <div className="border-2 border-red-200 rounded-lg p-4 bg-gradient-to-br from-red-50 to-white">
-                  <h4 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
+                <div className="border-2 border-gray-200 rounded-lg p-4 bg-white">
+                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
                     </svg>
@@ -1013,7 +1013,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                       <div className="flex items-center gap-2">
                         <span className="text-gray-600">Phone Verified:</span>
                         <span className={`font-semibold ${viewingWorker.otpVerified ? 'text-green-600' : 'text-red-600'}`}>
-                          {viewingWorker.otpVerified ? '✅ Yes' : '❌ No'}
+                          {viewingWorker.otpVerified ? 'Yes' : 'No'}
                         </span>
                       </div>
                     )}
@@ -1034,11 +1034,11 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
               )}
 
               {/* Credits Used Notice */}
-              <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 text-center">
-                <p className="text-sm text-blue-700 font-semibold">
-                  ✅ 1 credit has been used to view this complete profile
+              <div className="bg-[#1e40af]/10 border-2 border-[#1e40af]/30 rounded-lg p-4 text-center">
+                <p className="text-sm text-[#1e40af] font-semibold">
+                  1 credit has been used to view this complete profile
                 </p>
-                <p className="text-xs text-blue-600 mt-1">
+                <p className="text-xs text-[#1e40af]/80 mt-1">
                   Remaining credits: <span className="font-bold">{creditsRemaining}</span>
                 </p>
                 <p className="text-xs text-gray-500 mt-2">

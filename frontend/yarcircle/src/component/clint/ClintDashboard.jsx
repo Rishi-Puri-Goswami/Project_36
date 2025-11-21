@@ -250,9 +250,9 @@ const ClintDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-neutral-200 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
@@ -260,16 +260,16 @@ const ClintDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-neutral-200">
       {/* Real-time Credit Display - Floating Badge */}
       <CreditDisplay />
       
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="backdrop-blur-2xl shadow-sm">
         <div className="w-full sm:px-6 lg:px-8 py-4 flex  justify-between gap-8">
           {/* Left: App Name */}
           <div className="flex items-center gap-3">
-            <div className="bg-blue-600 rounded-lg p-2">
+            <div className="bg-black rounded-lg p-2">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
@@ -295,7 +295,7 @@ const ClintDashboard = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setShowSearchTips(true)}
                 onBlur={() => setTimeout(() => setShowSearchTips(false), 200)}
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e40af] focus:border-transparent transition-all"
               />
               {searchQuery && (
                 <button
@@ -313,10 +313,10 @@ const ClintDashboard = () => {
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-50">
                   <h4 className="font-semibold text-sm text-gray-700 mb-2">Smart Search Features:</h4>
                   <ul className="text-xs text-gray-600 space-y-1">
-                    <li>✓ Find workers even with partial words ("plum" finds "Plumber")</li>
-                    <li>✓ Case doesn't matter ("DELHI" = "delhi")</li>
-                    <li>✓ Spelling tolerant ("electrisian" finds "Electrician")</li>
-                    <li>✓ Searches name, skills, work type, and location</li>
+                    <li>Find workers even with partial words ("plum" finds "Plumber")</li>
+                    <li>Case doesn't matter ("DELHI" = "delhi")</li>
+                    <li>Spelling tolerant ("electrisian" finds "Electrician")</li>
+                    <li>Searches name, skills, work type, and location</li>
                   </ul>
                 </div>
               )}
@@ -328,7 +328,7 @@ const ClintDashboard = () => {
           <div className="hidden md:flex  gap-6">
             <button 
               onClick={() => navigate('/client/dashboard')}
-              className="flex items-center gap-2 px-4 py-2 text-blue-600 bg-blue-50 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-[#1e40af] bg-[#1e40af]/10 rounded-lg transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -338,7 +338,7 @@ const ClintDashboard = () => {
 
             <button 
               onClick={() => navigate('/client/worker-posts')}
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-[#1e40af] hover:bg-[#1e40af]/10 rounded-lg transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -346,7 +346,7 @@ const ClintDashboard = () => {
               <span className="font-medium">Worker Posts</span>
             </button>
             
-            {/* <button className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors relative">
+            {/* <button className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-[#1e40af] hover:bg-[#1e40af]/10 rounded-lg transition-colors relative">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
@@ -357,7 +357,7 @@ const ClintDashboard = () => {
 
             <button 
               onClick={() => navigate('/client/pricing')}
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-[#1e40af] hover:bg-[#1e40af]/10 rounded-lg transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -367,7 +367,7 @@ const ClintDashboard = () => {
             
             <button 
               onClick={() => setIsSettingsOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-[#1e40af] hover:bg-[#1e40af]/10 rounded-lg transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -388,7 +388,7 @@ const ClintDashboard = () => {
             <div className="relative">
               <div 
                 onClick={() => navigate('/client/profile')}
-                className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+                className="w-12 h-12 rounded-full bg-[#1e40af] flex items-center justify-center text-white font-bold text-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow"
               >
                 {client?.profilePicture ? (
                   <img 
@@ -436,7 +436,7 @@ const ClintDashboard = () => {
               placeholder="Search workers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1e40af] focus:border-transparent"
             />
             {searchQuery && (
               <button
@@ -506,10 +506,10 @@ const ClintDashboard = () => {
                       setIsSettingsOpen(false)
                       // Add navigation or action here
                     }}
-                    className="w-full flex items-center gap-4 p-4 hover:bg-blue-50 rounded-lg transition-colors group"
+                    className="w-full flex items-center gap-4 p-4 hover:bg-[#1e40af]/10 rounded-lg transition-colors group"
                   >
-                    <div className="bg-blue-100 p-3 rounded-lg group-hover:bg-blue-200 transition-colors">
-                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-gray-100 p-3 rounded-lg group-hover:bg-gray-200 transition-colors">
+                      <svg className="w-6 h-6 text-[#1e40af]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </div>
@@ -525,10 +525,10 @@ const ClintDashboard = () => {
                       setIsSettingsOpen(false)
                       // Add navigation or action here
                     }}
-                    className="w-full flex items-center gap-4 p-4 hover:bg-green-50 rounded-lg transition-colors group"
+                    className="w-full flex items-center gap-4 p-4 hover:bg-[#1e40af]/10 rounded-lg transition-colors group"
                   >
-                    <div className="bg-green-100 p-3 rounded-lg group-hover:bg-green-200 transition-colors">
-                      <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-gray-100 p-3 rounded-lg group-hover:bg-gray-200 transition-colors">
+                      <svg className="w-6 h-6 text-[#1e40af]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                       </svg>
                     </div>
@@ -544,10 +544,10 @@ const ClintDashboard = () => {
                       setIsSettingsOpen(false)
                       // Add navigation or action here
                     }}
-                    className="w-full flex items-center gap-4 p-4 hover:bg-purple-50 rounded-lg transition-colors group"
+                    className="w-full flex items-center gap-4 p-4 hover:bg-[#1e40af]/10 rounded-lg transition-colors group"
                   >
-                    <div className="bg-purple-100 p-3 rounded-lg group-hover:bg-purple-200 transition-colors">
-                      <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-gray-100 p-3 rounded-lg group-hover:bg-gray-200 transition-colors">
+                      <svg className="w-6 h-6 text-[#1e40af]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
                     </div>
@@ -563,10 +563,10 @@ const ClintDashboard = () => {
                       setIsSettingsOpen(false)
                       // Add navigation or action here
                     }}
-                    className="w-full flex items-center gap-4 p-4 hover:bg-orange-50 rounded-lg transition-colors group"
+                    className="w-full flex items-center gap-4 p-4 hover:bg-[#1e40af]/10 rounded-lg transition-colors group"
                   >
-                    <div className="bg-orange-100 p-3 rounded-lg group-hover:bg-orange-200 transition-colors">
-                      <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-gray-100 p-3 rounded-lg group-hover:bg-gray-200 transition-colors">
+                      <svg className="w-6 h-6 text-[#1e40af]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                       </svg>
                     </div>
@@ -582,7 +582,7 @@ const ClintDashboard = () => {
               <div className="p-4 border-t">
                 <button 
                   onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-900 transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

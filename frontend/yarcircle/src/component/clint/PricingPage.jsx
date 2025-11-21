@@ -46,7 +46,7 @@ const PricingPage = () => {
   const handlePurchase = async (plan) => {
     // Check if user is logged in
     if (!isAuthenticated) {
-      alert('⚠️ Please login to purchase a plan')
+      alert('Please login to purchase a plan')
       navigate('/client/login')
       return
     }
@@ -118,16 +118,16 @@ const PricingPage = () => {
             if (verifyResponse.ok) {
               const verifyData = await verifyResponse.json()
               
-              // ✨ REAL-TIME CREDIT UPDATE - Update credits instantly!
+              // REAL-TIME CREDIT UPDATE - Update credits instantly!
               addCredits(plan.viewsAllowed)
               
-              alert(`✅ Payment successful! ${plan.viewsAllowed} credits added to your account.`)
+              alert(`Payment successful! ${plan.viewsAllowed} credits added to your account.`)
               navigate('/client/dashboard')
             } else {
               throw new Error('Payment verification failed')
             }
           } catch (error) {
-            alert('❌ Payment verification failed. Please contact support.')
+            alert('Payment verification failed. Please contact support.')
             console.error('Verification error:', error)
           } finally {
             setProcessingPayment(false)
@@ -158,13 +158,13 @@ const PricingPage = () => {
       razorpay.open()
     } catch (error) {
       console.error('Payment error:', error)
-      alert('❌ Payment failed. Please try again.')
+      alert('Payment failed. Please try again.')
       setProcessingPayment(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="min-h-screen bg-neutral-50">
       {/* Navigation Bar */}
       <nav className="bg-white shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -179,15 +179,15 @@ const PricingPage = () => {
                 </svg>
                 Back
               </button>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold text-[#1e40af]">
                 YarCircle Pricing
               </span>
             </div>
             
             {isAuthenticated && (
               <div className="flex items-center gap-4">
-                <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-lg shadow-lg">
-                  <span className="text-sm font-semibold">💎 {creditsRemaining} Credits</span>
+                <div className="bg-[#1e40af] text-white px-4 py-2 rounded-lg shadow-lg">
+                  <span className="text-sm font-semibold">{creditsRemaining} Credits</span>
                 </div>
               </div>
             )}
@@ -198,14 +198,14 @@ const PricingPage = () => {
       {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+          <h1 className="text-5xl font-bold mb-4 text-[#1e40af]">
             Choose Your Perfect Plan
           </h1>
           <p className="text-xl text-gray-600 mb-2">
             Unlock worker profiles and grow your business
           </p>
           <p className="text-lg text-gray-500">
-            💳 Secure payments • 🚀 Instant activation • ♾️ Credits never expire
+            Secure payments • Instant activation • Credits never expire
           </p>
         </div>
 
@@ -235,21 +235,21 @@ const PricingPage = () => {
                     key={plan._id}
                     className={`relative bg-white border-2 rounded-2xl p-8 transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 ${
                       isPopular
-                        ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-xl scale-105'
-                        : 'border-gray-200 hover:border-blue-300'
+                        ? 'border-[#1e40af] bg-[#1e40af]/5 shadow-xl scale-105'
+                        : 'border-gray-200 hover:border-[#1e40af]/50'
                     }`}
                   >
                     {isPopular && (
                       <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                        <span className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-1.5 rounded-full text-sm font-semibold shadow-lg">
-                          ⭐ Best Value
+                        <span className="bg-[#1e40af] text-white px-6 py-1.5 rounded-full text-sm font-semibold shadow-lg">
+                          Best Value
                         </span>
                       </div>
                     )}
 
                     <div className="text-center">
                       <h3 className={`text-2xl font-bold mb-3 ${
-                        isPopular ? 'text-blue-600' : 'text-gray-700'
+                        isPopular ? 'text-[#1e40af]' : 'text-gray-700'
                       }`}>
                         {plan.planName}
                       </h3>
@@ -264,7 +264,7 @@ const PricingPage = () => {
                       </div>
 
                       <div className="mb-8">
-                        <div className="inline-block bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-3 rounded-xl font-bold text-lg shadow-lg">
+                        <div className="inline-block bg-[#1e40af] text-white px-6 py-3 rounded-xl font-bold text-lg shadow-lg">
                           {plan.viewsAllowed} Profile Views
                         </div>
                       </div>
@@ -307,7 +307,7 @@ const PricingPage = () => {
                         disabled={processingPayment}
                         className={`w-full py-4 rounded-xl font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                           isPopular
-                            ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 shadow-xl shadow-blue-500/50 hover:shadow-2xl'
+                            ? 'bg-[#1e40af] text-white hover:bg-[#1e40af]/90 shadow-xl hover:shadow-2xl'
                             : 'bg-gray-800 text-white hover:bg-gray-900 shadow-lg hover:shadow-xl'
                         }`}
                       >
@@ -320,7 +320,7 @@ const PricingPage = () => {
                             Processing...
                           </span>
                         ) : (
-                          '🚀 Buy Now'
+                          'Buy Now'
                         )}
                       </button>
                     </div>
@@ -336,8 +336,8 @@ const PricingPage = () => {
           <h2 className="text-3xl font-bold text-center mb-10">Why Choose YarCircle?</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
-              <div className="inline-block p-4 bg-blue-100 rounded-full mb-4">
-                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="inline-block p-4 bg-[#1e40af]/10 rounded-full mb-4">
+                <svg className="w-8 h-8 text-[#1e40af]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
@@ -366,7 +366,7 @@ const PricingPage = () => {
         </div>
 
         {/* Payment Methods Section */}
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-2xl p-10 text-white text-center mb-12">
+        <div className="bg-[#1e40af] rounded-2xl shadow-2xl p-10 text-white text-center mb-12">
           <h3 className="text-2xl font-bold mb-6 flex items-center justify-center gap-3">
             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -376,20 +376,20 @@ const PricingPage = () => {
           <div className="flex flex-wrap items-center justify-center gap-4 mb-6">
             {/* UPI Payment Badge */}
             <div className="bg-white/20 backdrop-blur-sm px-6 py-3 rounded-xl border border-white/30">
-              <span className="text-lg font-bold">📱 UPI / QR Code</span>
+              <span className="text-lg font-bold">UPI / QR Code</span>
             </div>
             <div className="bg-white/20 backdrop-blur-sm px-6 py-3 rounded-xl border border-white/30">
-              <span className="text-lg font-bold">💳 Credit/Debit Cards</span>
+              <span className="text-lg font-bold">Credit/Debit Cards</span>
             </div>
             <div className="bg-white/20 backdrop-blur-sm px-6 py-3 rounded-xl border border-white/30">
-              <span className="text-lg font-bold">🏦 Net Banking</span>
+              <span className="text-lg font-bold">Net Banking</span>
             </div>
             <div className="bg-white/20 backdrop-blur-sm px-6 py-3 rounded-xl border border-white/30">
-              <span className="text-lg font-bold">👛 Digital Wallets</span>
+              <span className="text-lg font-bold">Digital Wallets</span>
             </div>
           </div>
-          <p className="text-blue-100 text-lg">
-            ✨ Pay with PhonePe, Google Pay, Paytm, or scan QR code • Secure & Instant
+          <p className="text-[#1e40af]/80 text-lg">
+            Pay with PhonePe, Google Pay, Paytm, or scan QR code • Secure & Instant
           </p>
         </div>
 
@@ -398,23 +398,23 @@ const PricingPage = () => {
           <h2 className="text-3xl font-bold text-center mb-10">Frequently Asked Questions</h2>
           <div className="space-y-6 max-w-3xl mx-auto">
             <div className="border-b pb-6">
-              <h4 className="text-lg font-semibold mb-2">❓ Do credits expire?</h4>
+              <h4 className="text-lg font-semibold mb-2">Do credits expire?</h4>
               <p className="text-gray-600">No! Your credits never expire. Use them whenever you want, at your own pace.</p>
             </div>
             <div className="border-b pb-6">
-              <h4 className="text-lg font-semibold mb-2">❓ How do I use credits?</h4>
+              <h4 className="text-lg font-semibold mb-2">How do I use credits?</h4>
               <p className="text-gray-600">Each time you view a worker's full profile (contact details, portfolio), 1 credit is deducted from your account.</p>
             </div>
             <div className="border-b pb-6">
-              <h4 className="text-lg font-semibold mb-2">❓ Is payment secure?</h4>
+              <h4 className="text-lg font-semibold mb-2">Is payment secure?</h4>
               <p className="text-gray-600">Yes! We use Razorpay, India's leading payment gateway trusted by millions. All transactions are encrypted and secure.</p>
             </div>
             <div className="border-b pb-6">
-              <h4 className="text-lg font-semibold mb-2">❓ When will I get my credits?</h4>
+              <h4 className="text-lg font-semibold mb-2">When will I get my credits?</h4>
               <p className="text-gray-600">Credits are added instantly after successful payment verification. You can start using them immediately!</p>
             </div>
             <div>
-              <h4 className="text-lg font-semibold mb-2">❓ Can I get a refund?</h4>
+              <h4 className="text-lg font-semibold mb-2">Can I get a refund?</h4>
               <p className="text-gray-600">Credits are non-refundable once purchased. However, since they never expire, you can use them anytime in the future.</p>
             </div>
           </div>
@@ -422,19 +422,19 @@ const PricingPage = () => {
 
         {/* CTA Section */}
         {!isAuthenticated && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-10 text-center mt-12 border-2 border-blue-200">
+          <div className="bg-white rounded-2xl p-10 text-center mt-12 border-2 border-gray-200">
             <h3 className="text-2xl font-bold mb-4">Ready to get started?</h3>
             <p className="text-gray-600 mb-6 text-lg">Create a free account to purchase credits and start viewing worker profiles</p>
             <div className="flex gap-4 justify-center">
               <button
                 onClick={() => navigate('/client/register')}
-                className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-blue-600 hover:to-indigo-600 shadow-lg hover:shadow-xl transition-all"
+                className="bg-[#1e40af] text-white px-8 py-3 rounded-xl font-bold text-lg hover:bg-[#1e40af]/90 shadow-lg hover:shadow-xl transition-all"
               >
                 Sign Up Free
               </button>
               <button
                 onClick={() => navigate('/client/login')}
-                className="bg-white text-gray-700 px-8 py-3 rounded-xl font-bold text-lg border-2 border-gray-300 hover:border-blue-500 hover:text-blue-600 shadow-lg hover:shadow-xl transition-all"
+                className="bg-white text-gray-700 px-8 py-3 rounded-xl font-bold text-lg border-2 border-gray-300 hover:border-[#1e40af] hover:text-[#1e40af] shadow-lg hover:shadow-xl transition-all"
               >
                 Login
               </button>
