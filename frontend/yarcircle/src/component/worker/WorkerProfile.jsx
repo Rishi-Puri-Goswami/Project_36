@@ -36,6 +36,7 @@ const WorkerProfile = () => {
   const [coverImgNatural, setCoverImgNatural] = useState({ width: 0, height: 0 })
   const [coverViewport, setCoverViewport] = useState({ w: 0, h: 0 })
   const [coverMinScale, setCoverMinScale] = useState(1)
+  const [coverCroppedPreviewUrl, setCoverCroppedPreviewUrl] = useState(null)
   const [postImages, setPostImages] = useState([])
   const [postImagePreviews, setPostImagePreviews] = useState([])
   const [newPost, setNewPost] = useState({
@@ -57,6 +58,7 @@ const WorkerProfile = () => {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [showProfilePreview, setShowProfilePreview] = useState(false)
+  const [showCoverPreview, setShowCoverPreview] = useState(false)
 
   useEffect(() => {
     if (!isWorkerAuthenticated()) {
@@ -546,6 +548,19 @@ const WorkerProfile = () => {
     return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
   }
 
+  const generateCoverPreview = async () => {
+    const blob = await createCroppedCoverBlob()
+    if (!blob) {
+      setCoverCroppedPreviewUrl(null)
+      return
+    }
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setCoverCroppedPreviewUrl(reader.result)
+    }
+    reader.readAsDataURL(blob)
+  }
+
   // clamp cover position so the visible image always covers the viewport
   const clampCoverPos = (pos, scale) => {
     const vw = coverViewport.w || 900
@@ -630,6 +645,7 @@ const WorkerProfile = () => {
         setShowCoverPhotoUploadModal(false)
         setSelectedCoverFile(null)
         setCoverPreviewUrl(null)
+        setCoverCroppedPreviewUrl(null)
         setMessage({ type: 'success', text: '✅ Cover photo updated successfully!' })
 
         // Clear message after 3 seconds
@@ -652,6 +668,7 @@ const WorkerProfile = () => {
     setShowCoverPhotoUploadModal(false)
     setSelectedCoverFile(null)
     setCoverPreviewUrl(null)
+    setCoverCroppedPreviewUrl(null)
   }
 
   const handlePostImageSelect = (event) => {
@@ -833,8 +850,9 @@ const WorkerProfile = () => {
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
           {/* Cover Photo */}
           <div 
-            className="h-32 bg-blue-800 bg-cover bg-center bg-no-repeat relative group"
-            style={worker?.coverPhoto ? { backgroundImage: `linear-gradient(rgba(30, 64, 175, 0.3), rgba(30, 64, 175, 0.3)), url(${worker.coverPhoto})` } : {}}
+            className="h-32 bg-cover bg-center bg-no-repeat relative group cursor-pointer"
+            style={worker?.coverPhoto ? { backgroundImage: `url(${worker.coverPhoto})` } : {}}
+            onClick={() => worker?.coverPhoto && setShowCoverPreview(true)}
           >
             {/* Upload Cover Photo Icon */}
             <label 
@@ -1672,6 +1690,23 @@ const WorkerProfile = () => {
         </div>
       )}
 
+      {/* Cover Photo Full Preview Modal (clear, no gradient) */}
+      {showCoverPreview && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black opacity-70" onClick={() => setShowCoverPreview(false)}></div>
+          <div className="relative max-w-5xl w-full max-h-full overflow-auto p-4 z-70">
+            <button onClick={() => setShowCoverPreview(false)} className="absolute top-4 right-4 bg-white rounded-full p-2 shadow-lg z-80">
+              <svg className="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="bg-white rounded-lg overflow-hidden p-4 flex items-center justify-center">
+              <img src={worker?.coverPhoto || '/default-cover.png'} alt="Cover Full" className="max-w-full max-h-[80vh] object-contain" />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cover Photo Upload Modal */}
       {showCoverPhotoUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1714,8 +1749,19 @@ const WorkerProfile = () => {
                         <label className="text-sm text-gray-600">Zoom</label>
                         <input type="range" min={coverMinScale || 1} max={Math.max(3, coverMinScale || 1)} step="0.01" value={coverCropScale} onChange={(e) => onCoverZoomChange(e.target.value)} className="flex-1" />
                         <button onClick={resetCoverCrop} className="px-3 py-1 bg-gray-200 rounded">Reset</button>
+                        <button onClick={generateCoverPreview} className="px-3 py-1 bg-blue-800 text-white rounded">Preview</button>
                       </div>
                       <p className="text-xs text-gray-500 mt-2">Drag to reposition the banner; use zoom to scale.</p>
+
+                      {/* Cropped preview thumbnail */}
+                      {coverCroppedPreviewUrl && (
+                        <div className="mt-4">
+                          <p className="text-xs text-gray-500 mb-2">Cropped Preview</p>
+                          <div className="w-full max-w-xl border rounded overflow-hidden shadow-sm">
+                            <img src={coverCroppedPreviewUrl} alt="Cropped preview" className="w-full h-auto object-cover" />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
