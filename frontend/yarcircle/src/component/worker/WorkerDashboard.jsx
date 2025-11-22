@@ -1089,23 +1089,58 @@ const WorkerDashboard = () => {
       {showJobDetailsModal && selectedJob && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-8">
-            {/* Modal Header */}
-            <div className="bg-blue-800 text-white p-6 rounded-t-2xl">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <h2 className="text-2xl font-bold mb-2">{selectedJob.workType}</h2>
-                  <p className="text-green-100">
-                    Posted by: {selectedJob.clientId?.companyName || selectedJob.clientId?.name || 'Company'}
-                  </p>
+            {/* Modal Header - Polished */}
+            <div className="bg-gradient-to-r from-blue-800 to-blue-700 text-white p-4 rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                {/* Company Avatar / Logo (smaller) */}
+                <div className="flex-shrink-0">
+                  {selectedJob.clientId?.profilePicture ? (
+                    <img src={selectedJob.clientId.profilePicture} alt={selectedJob.clientId?.companyName || 'Company'} className="w-12 h-12 md:w-16 md:h-16 rounded-md object-cover border-2 border-white shadow" />
+                  ) : (
+                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-md bg-white/10 flex items-center justify-center text-white font-bold text-lg md:text-xl border-2 border-white shadow">
+                      {(selectedJob.clientId?.companyName || selectedJob.clientId?.name || 'C').charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={closeJobDetailsModal}
-                  className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+
+                {/* Title and compact meta */}
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-xl md:text-2xl font-bold leading-tight truncate">{selectedJob.workType}</h2>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                    <span className="text-white/90">{selectedJob.clientId?.companyName || selectedJob.clientId?.name || 'Company'}</span>
+                    {selectedJob.location && (
+                      <span className="inline-flex items-center gap-1 bg-white/10 text-white text-xs px-2 py-0.5 rounded-full">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span className="truncate">{selectedJob.location}</span>
+                      </span>
+                    )}
+
+                    {selectedJob.salaryRange && (
+                      <span className="inline-flex items-center gap-1 bg-white/10 text-white text-xs px-2 py-0.5 rounded-full">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2" />
+                        </svg>
+                        <span className="truncate">{selectedJob.salaryRange}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Close button (compact) */}
+                <div className="flex-shrink-0">
+                  <button
+                    onClick={closeJobDetailsModal}
+                    className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+                    aria-label="Close details"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
 
