@@ -35,6 +35,7 @@ const WorkerProfile = () => {
   const [coverDragStart, setCoverDragStart] = useState({ x: 0, y: 0 })
   const [coverImgNatural, setCoverImgNatural] = useState({ width: 0, height: 0 })
   const [coverViewport, setCoverViewport] = useState({ w: 0, h: 0 })
+  const [coverMinScale, setCoverMinScale] = useState(1)
   const [postImages, setPostImages] = useState([])
   const [postImagePreviews, setPostImagePreviews] = useState([])
   const [newPost, setNewPost] = useState({
@@ -460,10 +461,19 @@ const WorkerProfile = () => {
     const vw = container ? Math.round(container.clientWidth) : 900
     const vh = Math.round(vw * 0.3)
     setCoverViewport({ w: vw, h: vh })
-    setCoverCropScale(1)
+    // compute minimum scale so the image always covers the viewport
+    const minScale = Math.max(vw / img.naturalWidth, vh / img.naturalHeight)
+    setCoverMinScale(minScale)
+    const initialScale = Math.max(1, minScale)
+    setCoverCropScale(initialScale)
     const displayedHeight = vh
     const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
-    setCoverCropPos({ x: Math.round((vw - displayedWidth) / 2), y: 0 })
+    const visibleW = displayedWidth * initialScale
+    const visibleH = displayedHeight * initialScale
+    // center image initial position
+    const initX = Math.round((vw - visibleW) / 2)
+    const initY = Math.round((vh - visibleH) / 2)
+    setCoverCropPos({ x: initX, y: initY })
   }
 
   const onCoverMouseDown = (e) => {
@@ -477,7 +487,7 @@ const WorkerProfile = () => {
     const dx = e.clientX - coverDragStart.x
     const dy = e.clientY - coverDragStart.y
     setCoverDragStart({ x: e.clientX, y: e.clientY })
-    setCoverCropPos(prev => ({ x: prev.x + dx, y: prev.y + dy }))
+    setCoverCropPos(prev => clampCoverPos({ x: prev.x + dx, y: prev.y + dy }, coverCropScale))
   }
 
   const onCoverMouseUp = () => {
@@ -494,7 +504,7 @@ const WorkerProfile = () => {
     const dx = e.touches[0].clientX - coverDragStart.x
     const dy = e.touches[0].clientY - coverDragStart.y
     setCoverDragStart({ x: e.touches[0].clientX, y: e.touches[0].clientY })
-    setCoverCropPos(prev => ({ x: prev.x + dx, y: prev.y + dy }))
+    setCoverCropPos(prev => clampCoverPos({ x: prev.x + dx, y: prev.y + dy }, coverCropScale))
   }
 
   const onCoverTouchEnd = () => {
@@ -534,6 +544,55 @@ const WorkerProfile = () => {
     }
 
     return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+  }
+
+  // clamp cover position so the visible image always covers the viewport
+  const clampCoverPos = (pos, scale) => {
+    const vw = coverViewport.w || 900
+    const vh = coverViewport.h || Math.round(vw * 0.3)
+    if (!coverImgNatural.width || !coverImgNatural.height) return pos
+
+    const displayedHeight = vh
+    const displayedWidth = (coverImgNatural.width / coverImgNatural.height) * displayedHeight
+    const visibleW = displayedWidth * scale
+    const visibleH = displayedHeight * scale
+
+    const minX = Math.min(0, vw - visibleW)
+    const maxX = 0
+    const minY = Math.min(0, vh - visibleH)
+    const maxY = 0
+
+    const x = Math.round(Math.max(minX, Math.min(maxX, pos.x)))
+    const y = Math.round(Math.max(minY, Math.min(maxY, pos.y)))
+    return { x, y }
+  }
+
+  // when user changes zoom, enforce min scale and clamp position
+  const onCoverZoomChange = (value) => {
+    const raw = parseFloat(value)
+    const s = Math.max(raw, coverMinScale || 1)
+    // recompute clamped pos
+    setCoverCropScale(s)
+    setCoverCropPos(prev => clampCoverPos(prev, s))
+  }
+
+  const resetCoverCrop = () => {
+    const vw = coverViewport.w || 900
+    const vh = coverViewport.h || Math.round(vw * 0.3)
+    const minS = coverMinScale || 1
+    const s = Math.max(1, minS)
+    setCoverCropScale(s)
+    if (!coverImgNatural.width || !coverImgNatural.height) {
+      setCoverCropPos({ x: 0, y: 0 })
+      return
+    }
+    const displayedHeight = vh
+    const displayedWidth = (coverImgNatural.width / coverImgNatural.height) * displayedHeight
+    const visibleW = displayedWidth * s
+    const visibleH = displayedHeight * s
+    const initX = Math.round((vw - visibleW) / 2)
+    const initY = Math.round((vh - visibleH) / 2)
+    setCoverCropPos({ x: initX, y: initY })
   }
 
   const handleUploadCoverPhoto = async () => {
@@ -1653,8 +1712,8 @@ const WorkerProfile = () => {
                       </div>
                       <div className="w-full mt-3 flex items-center gap-3">
                         <label className="text-sm text-gray-600">Zoom</label>
-                        <input type="range" min="1" max="3" step="0.01" value={coverCropScale} onChange={(e) => setCoverCropScale(parseFloat(e.target.value))} className="flex-1" />
-                        <button onClick={() => { setCoverCropScale(1); setCoverCropPos({ x: 0, y: 0 }) }} className="px-3 py-1 bg-gray-200 rounded">Reset</button>
+                        <input type="range" min={coverMinScale || 1} max={Math.max(3, coverMinScale || 1)} step="0.01" value={coverCropScale} onChange={(e) => onCoverZoomChange(e.target.value)} className="flex-1" />
+                        <button onClick={resetCoverCrop} className="px-3 py-1 bg-gray-200 rounded">Reset</button>
                       </div>
                       <p className="text-xs text-gray-500 mt-2">Drag to reposition the banner; use zoom to scale.</p>
                     </div>
