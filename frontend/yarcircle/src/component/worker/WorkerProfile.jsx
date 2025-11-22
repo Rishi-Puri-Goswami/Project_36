@@ -26,6 +26,15 @@ const WorkerProfile = () => {
   const [showCoverPhotoUploadModal, setShowCoverPhotoUploadModal] = useState(false)
   const [selectedCoverFile, setSelectedCoverFile] = useState(null)
   const [coverPreviewUrl, setCoverPreviewUrl] = useState(null)
+  // Cover cropping state
+  const coverImgRef = React.useRef(null)
+  const coverContainerRef = React.useRef(null)
+  const [coverCropScale, setCoverCropScale] = useState(1)
+  const [coverCropPos, setCoverCropPos] = useState({ x: 0, y: 0 })
+  const [coverIsDragging, setCoverIsDragging] = useState(false)
+  const [coverDragStart, setCoverDragStart] = useState({ x: 0, y: 0 })
+  const [coverImgNatural, setCoverImgNatural] = useState({ width: 0, height: 0 })
+  const [coverViewport, setCoverViewport] = useState({ w: 0, h: 0 })
   const [postImages, setPostImages] = useState([])
   const [postImagePreviews, setPostImagePreviews] = useState([])
   const [newPost, setNewPost] = useState({
@@ -433,11 +442,98 @@ const WorkerProfile = () => {
       const reader = new FileReader()
       reader.onloadend = () => {
         setCoverPreviewUrl(reader.result)
+        // reset cover crop state
+        setCoverCropScale(1)
+        setCoverCropPos({ x: 0, y: 0 })
       }
       reader.readAsDataURL(file)
       
       setShowCoverPhotoUploadModal(true)
     }
+  }
+
+  const onCoverPreviewLoad = (e) => {
+    const img = e.target
+    setCoverImgNatural({ width: img.naturalWidth, height: img.naturalHeight })
+    // viewport width is container width; keep banner aspect ratio ~0.3 (360/1200)
+    const container = coverContainerRef.current
+    const vw = container ? Math.round(container.clientWidth) : 900
+    const vh = Math.round(vw * 0.3)
+    setCoverViewport({ w: vw, h: vh })
+    setCoverCropScale(1)
+    const displayedHeight = vh
+    const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
+    setCoverCropPos({ x: Math.round((vw - displayedWidth) / 2), y: 0 })
+  }
+
+  const onCoverMouseDown = (e) => {
+    e.preventDefault()
+    setCoverIsDragging(true)
+    setCoverDragStart({ x: e.clientX, y: e.clientY })
+  }
+
+  const onCoverMouseMove = (e) => {
+    if (!coverIsDragging || !coverImgRef.current) return
+    const dx = e.clientX - coverDragStart.x
+    const dy = e.clientY - coverDragStart.y
+    setCoverDragStart({ x: e.clientX, y: e.clientY })
+    setCoverCropPos(prev => ({ x: prev.x + dx, y: prev.y + dy }))
+  }
+
+  const onCoverMouseUp = () => {
+    setCoverIsDragging(false)
+  }
+
+  const onCoverTouchStart = (e) => {
+    setCoverIsDragging(true)
+    setCoverDragStart({ x: e.touches[0].clientX, y: e.touches[0].clientY })
+  }
+
+  const onCoverTouchMove = (e) => {
+    if (!coverIsDragging) return
+    const dx = e.touches[0].clientX - coverDragStart.x
+    const dy = e.touches[0].clientY - coverDragStart.y
+    setCoverDragStart({ x: e.touches[0].clientX, y: e.touches[0].clientY })
+    setCoverCropPos(prev => ({ x: prev.x + dx, y: prev.y + dy }))
+  }
+
+  const onCoverTouchEnd = () => {
+    setCoverIsDragging(false)
+  }
+
+  const createCroppedCoverBlob = async () => {
+    if (!coverImgRef.current) return null
+    const img = coverImgRef.current
+    const vw = coverViewport.w || 900
+    const vh = coverViewport.h || Math.round(vw * 0.3)
+
+    const displayedHeight = vh
+    const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
+
+    const scale = coverCropScale
+
+    const sx = Math.max(0, ((0 - coverCropPos.x) / (displayedWidth * scale)) * img.naturalWidth)
+    const sy = Math.max(0, ((0 - coverCropPos.y) / (displayedHeight * scale)) * img.naturalHeight)
+    const sWidth = Math.min(img.naturalWidth, (vw / (displayedWidth * scale)) * img.naturalWidth)
+    const sHeight = Math.min(img.naturalHeight, (vh / (displayedHeight * scale)) * img.naturalHeight)
+
+    const canvasW = 1200
+    const canvasH = 360
+    const canvas = document.createElement('canvas')
+    canvas.width = canvasW
+    canvas.height = canvasH
+    const ctx = canvas.getContext('2d')
+
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, canvasW, canvasH)
+    try {
+      ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, canvasW, canvasH)
+    } catch (err) {
+      console.error('Error drawing cropped cover image', err)
+      return null
+    }
+
+    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
   }
 
   const handleUploadCoverPhoto = async () => {
@@ -446,8 +542,19 @@ const WorkerProfile = () => {
     setUploadingCoverPhoto(true)
     try {
       const token = localStorage.getItem('workerToken')
+
+      // create cropped blob for cover
+      const blob = await createCroppedCoverBlob()
+      if (!blob) {
+        setMessage({ type: 'error', text: '❌ Failed to prepare cropped cover image' })
+        setUploadingCoverPhoto(false)
+        return
+      }
+
+      const file = new File([blob], selectedCoverFile.name || 'cover.jpg', { type: blob.type })
+
       const formData = new FormData()
-      formData.append('coverPhoto', selectedCoverFile)
+      formData.append('coverPhoto', file)
 
       const response = await fetch(`${API_URL}/workers/upload-cover-photo`, {
         method: 'POST',
@@ -465,7 +572,7 @@ const WorkerProfile = () => {
         setSelectedCoverFile(null)
         setCoverPreviewUrl(null)
         setMessage({ type: 'success', text: '✅ Cover photo updated successfully!' })
-        
+
         // Clear message after 3 seconds
         setTimeout(() => {
           setMessage({ type: '', text: '' })
@@ -1517,17 +1624,41 @@ const WorkerProfile = () => {
 
             <div className="p-6">
               {/* Preview */}
-              {coverPreviewUrl && (
-                <div className="mb-6">
-                  <div className="w-full h-48 rounded-lg overflow-hidden border-4 border-gray-300 shadow-lg">
-                    <img 
-                      src={coverPreviewUrl} 
-                      alt="Cover Preview" 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-              )}
+                  {coverPreviewUrl && (
+                    <div className="mb-6">
+                      <div ref={coverContainerRef} className="w-full h-48 rounded-lg overflow-hidden border-4 border-gray-300 shadow-lg relative">
+                        <div
+                          className="absolute top-0 left-0"
+                          style={{ transform: `translate(${coverCropPos.x}px, ${coverCropPos.y}px) scale(${coverCropScale})`, transformOrigin: 'top left', cursor: coverIsDragging ? 'grabbing' : 'grab' }}
+                          onMouseDown={onCoverMouseDown}
+                          onMouseMove={onCoverMouseMove}
+                          onMouseUp={onCoverMouseUp}
+                          onMouseLeave={onCoverMouseUp}
+                          onTouchStart={onCoverTouchStart}
+                          onTouchMove={onCoverTouchMove}
+                          onTouchEnd={onCoverTouchEnd}
+                        >
+                          <img
+                            ref={coverImgRef}
+                            src={coverPreviewUrl}
+                            alt="Cover Preview"
+                            onLoad={onCoverPreviewLoad}
+                            style={{ height: `${coverViewport.h || 144}px`, width: 'auto', display: 'block', userSelect: 'none', pointerEvents: 'none' }}
+                          />
+                        </div>
+                        {/* semi-transparent overlay showing crop area */}
+                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          <div className="w-full h-full rounded-lg border-0"></div>
+                        </div>
+                      </div>
+                      <div className="w-full mt-3 flex items-center gap-3">
+                        <label className="text-sm text-gray-600">Zoom</label>
+                        <input type="range" min="1" max="3" step="0.01" value={coverCropScale} onChange={(e) => setCoverCropScale(parseFloat(e.target.value))} className="flex-1" />
+                        <button onClick={() => { setCoverCropScale(1); setCoverCropPos({ x: 0, y: 0 }) }} className="px-3 py-1 bg-gray-200 rounded">Reset</button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">Drag to reposition the banner; use zoom to scale.</p>
+                    </div>
+                  )}
 
               {/* File Info */}
               {selectedCoverFile && (
