@@ -8,6 +8,19 @@ const ClientPostSchema = new mongoose.Schema({
   salaryRange: String,
   description: String,
   contactNumber: String,
+  // Additional fields requested by frontend
+  department: String,
+  employmentType: String,
+  shift: String,
+  experienceMinYears: { type: Number },
+  education: String,
+  degreeSpecialization: String,
+  gender: { type: String, default: 'Any' },
+  // Company information
+  companyName: String,
+  companyAddress: String,
+  companyWebsite: String,
+  additionalInfo: String,
   // isApproved: { type: Boolean, default: false }, // admin approval
   validityDays: { type: Number, default: 15 },
   expiryDate: Date,

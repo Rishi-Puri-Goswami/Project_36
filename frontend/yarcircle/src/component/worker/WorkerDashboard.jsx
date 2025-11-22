@@ -1184,6 +1184,105 @@ const WorkerDashboard = () => {
                 </div>
               </div>
 
+              {/* Job Requirements (new fields) */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v4a1 1 0 001 1h3m10-6h3a1 1 0 011 1v10a1 1 0 01-1 1h-3M7 7h10M7 11h10M7 15h6" />
+                  </svg>
+                  Job Requirements
+                </h3>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 grid md:grid-cols-2 gap-4">
+                  {selectedJob.department && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Department</p>
+                      <p className="text-gray-800 font-semibold">{selectedJob.department}</p>
+                    </div>
+                  )}
+
+                  {selectedJob.employmentType && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Employment Type</p>
+                      <p className="text-gray-800 font-semibold">{selectedJob.employmentType}</p>
+                    </div>
+                  )}
+
+                  {selectedJob.shift && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Shift</p>
+                      <p className="text-gray-800 font-semibold">{selectedJob.shift}</p>
+                    </div>
+                  )}
+
+                  {selectedJob.experienceMinYears !== undefined && selectedJob.experienceMinYears !== null && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Experience (min)</p>
+                      <p className="text-gray-800 font-semibold">{selectedJob.experienceMinYears} years</p>
+                    </div>
+                  )}
+
+                  {selectedJob.education && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Education</p>
+                      <p className="text-gray-800 font-semibold">{selectedJob.education}</p>
+                    </div>
+                  )}
+
+                  {selectedJob.degreeSpecialization && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Degree / Specialization</p>
+                      <p className="text-gray-800 font-semibold">{selectedJob.degreeSpecialization}</p>
+                    </div>
+                  )}
+
+                  {selectedJob.gender && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Preferred Gender</p>
+                      <p className="text-gray-800 font-semibold">{selectedJob.gender}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* About Company (new fields) */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v4a1 1 0 001 1h3m10-6h3a1 1 0 011 1v10a1 1 0 01-1 1h-3M7 7h10M7 11h10M7 15h6" />
+                  </svg>
+                  About Company
+                </h3>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-2">
+                  {selectedJob.companyName && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">Company:</span>
+                      <span className="text-gray-800 font-semibold">{selectedJob.companyName}</span>
+                    </div>
+                  )}
+
+                  {selectedJob.companyAddress && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">Address:</span>
+                      <span className="text-gray-800 font-semibold">{selectedJob.companyAddress}</span>
+                    </div>
+                  )}
+
+                  {selectedJob.companyWebsite && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">Website:</span>
+                      <a href={selectedJob.companyWebsite} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{selectedJob.companyWebsite}</a>
+                    </div>
+                  )}
+
+                  {selectedJob.additionalInfo && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Additional Info / Benefits</p>
+                      <p className="text-gray-800">{selectedJob.additionalInfo}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Client Contact Info */}
               {selectedJob.clientId && (
                 <div className="mb-6 border-t pt-6">

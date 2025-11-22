@@ -11,7 +11,19 @@ const PostJob = () => {
     salaryRange: '',
     description: '',
     contactNumber: '',
-    validityDays: 15
+    validityDays: 15,
+    // New fields
+    department: '',
+    employmentType: '',
+    shift: '',
+    experienceMinYears: '',
+    education: '',
+    degreeSpecialization: '',
+    gender: 'Any',
+    companyName: '',
+    companyAddress: '',
+    companyWebsite: '',
+    additionalInfo: ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -113,6 +125,52 @@ const PostJob = () => {
               />
             </div>
 
+            {/* Department */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Department</label>
+              <input
+                type="text"
+                name="department"
+                value={formData.department}
+                onChange={handleChange}
+                placeholder="e.g., Maintenance, Operations"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Employment Type */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Employment Type</label>
+              <select
+                name="employmentType"
+                value={formData.employmentType}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Select type</option>
+                <option value="Full-time">Full-time</option>
+                <option value="Part-time">Part-time</option>
+                <option value="Contract">Contract</option>
+                <option value="Temporary">Temporary</option>
+              </select>
+            </div>
+
+            {/* Shift */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Shift</label>
+              <select
+                name="shift"
+                value={formData.shift}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Select shift</option>
+                <option value="Day">Day</option>
+                <option value="Night">Night</option>
+                <option value="Rotational">Rotational</option>
+              </select>
+            </div>
+
             {/* Location */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -144,6 +202,62 @@ const PostJob = () => {
               />
             </div>
 
+            {/* Experience (min years) */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Experience (min years)</label>
+              <input
+                type="number"
+                name="experienceMinYears"
+                value={formData.experienceMinYears}
+                onChange={handleChange}
+                min="0"
+                placeholder="e.g., 3"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Education */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Education</label>
+              <input
+                type="text"
+                name="education"
+                value={formData.education}
+                onChange={handleChange}
+                placeholder="e.g., High School, Diploma, Graduate"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Degree / Specialization */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Degree / Specialization</label>
+              <input
+                type="text"
+                name="degreeSpecialization"
+                value={formData.degreeSpecialization}
+                onChange={handleChange}
+                placeholder="e.g., B.Tech (Mechanical), Diploma (Electrical)"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Gender */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Gender</label>
+              <select
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="Any">Any</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
             {/* Contact Number */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -173,6 +287,57 @@ const PostJob = () => {
                 rows="6"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
+            </div>
+
+            {/* About Company Section */}
+            <div className="pt-4 border-t border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">About Company (Optional)</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Company Name</label>
+                  <input
+                    type="text"
+                    name="companyName"
+                    value={formData.companyName}
+                    onChange={handleChange}
+                    placeholder="Company Pvt Ltd"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Company Address</label>
+                  <input
+                    type="text"
+                    name="companyAddress"
+                    value={formData.companyAddress}
+                    onChange={handleChange}
+                    placeholder="Street, City, State"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Company Website</label>
+                  <input
+                    type="url"
+                    name="companyWebsite"
+                    value={formData.companyWebsite}
+                    onChange={handleChange}
+                    placeholder="https://example.com"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Additional Info / Benefits</label>
+                  <input
+                    type="text"
+                    name="additionalInfo"
+                    value={formData.additionalInfo}
+                    onChange={handleChange}
+                    placeholder="e.g., Free lunch, Transport allowance"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Validity Days */}

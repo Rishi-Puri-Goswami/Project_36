@@ -207,6 +207,99 @@ const JobDetails = () => {
           </div>
         </div>
 
+        {/* Additional Job Details */}
+        <div className="bg-white rounded-lg shadow-md p-8 mb-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Job Requirements</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            {job.department && (
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Department</p>
+                <p className="text-gray-800 font-semibold">{job.department}</p>
+              </div>
+            )}
+
+            {job.employmentType && (
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Employment Type</p>
+                <p className="text-gray-800 font-semibold">{job.employmentType}</p>
+              </div>
+            )}
+
+            {job.shift && (
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Shift</p>
+                <p className="text-gray-800 font-semibold">{job.shift}</p>
+              </div>
+            )}
+
+            {job.experienceMinYears !== undefined && job.experienceMinYears !== null && (
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Experience (min)</p>
+                <p className="text-gray-800 font-semibold">{job.experienceMinYears} years</p>
+              </div>
+            )}
+
+            {job.education && (
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Education</p>
+                <p className="text-gray-800 font-semibold">{job.education}</p>
+              </div>
+            )}
+
+            {job.degreeSpecialization && (
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Degree / Specialization</p>
+                <p className="text-gray-800 font-semibold">{job.degreeSpecialization}</p>
+              </div>
+            )}
+
+            {job.gender && (
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Preferred Gender</p>
+                <p className="text-gray-800 font-semibold">{job.gender}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Company Info */}
+        <div className="bg-white rounded-lg shadow-md p-8 mb-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">About Company</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            {job.companyName && (
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Company Name</p>
+                <p className="text-gray-800 font-semibold">{job.companyName}</p>
+              </div>
+            )}
+
+            {job.companyAddress && (
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Address</p>
+                <p className="text-gray-800 font-semibold">{job.companyAddress}</p>
+              </div>
+            )}
+
+            {job.companyWebsite && (
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Website</p>
+                <p className="text-gray-800 font-semibold">
+                  <a href={job.companyWebsite} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                    {job.companyWebsite}
+                  </a>
+                </p>
+              </div>
+            )}
+
+            {job.additionalInfo && (
+              <div className="md:col-span-2">
+                <p className="text-sm text-gray-500 mb-1">Additional Info / Benefits</p>
+                <p className="text-gray-800 font-semibold">{job.additionalInfo}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Job Description */}
         <div className="bg-white rounded-lg shadow-md p-8 mb-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">

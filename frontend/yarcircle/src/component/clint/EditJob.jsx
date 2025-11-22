@@ -9,13 +9,26 @@ const EditJob = () => {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [formData, setFormData] = useState({
+    // Base fields (match backend ClientPost schema)
     workType: '',
     numberOfWorkers: 1,
     location: '',
     salaryRange: '',
     description: '',
     contactNumber: '',
-    validityDays: 15
+    validityDays: 15,
+    // Additional fields
+    department: '',
+    employmentType: '',
+    shift: '',
+    experienceMinYears: '',
+    education: '',
+    degreeSpecialization: '',
+    gender: '',
+    companyName: '',
+    companyAddress: '',
+    companyWebsite: '',
+    additionalInfo: ''
   })
 
   useEffect(() => {
@@ -35,16 +48,32 @@ const EditJob = () => {
       const data = await response.json()
 
       if (response.ok) {
-        const job = data.jobPost
-        setFormData({
-          workType: job.workType || '',
-          numberOfWorkers: job.numberOfWorkers || 1,
-          location: job.location || '',
-          salaryRange: job.salaryRange || '',
-          description: job.description || '',
-          contactNumber: job.contactNumber || '',
-          validityDays: job.validityDays || 15
-        })
+        // backend returns { jobPost }
+        const job = data.jobPost || data.job || data.jobPost || null;
+        if (!job) {
+          setError('Malformed response from server')
+        } else {
+          setFormData({
+            workType: job.workType || '',
+            numberOfWorkers: job.numberOfWorkers || 1,
+            location: job.location || '',
+            salaryRange: job.salaryRange || '',
+            description: job.description || '',
+            contactNumber: job.contactNumber || '',
+            validityDays: job.validityDays || 15,
+            department: job.department || '',
+            employmentType: job.employmentType || '',
+            shift: job.shift || '',
+            experienceMinYears: job.experienceMinYears || '',
+            education: job.education || '',
+            degreeSpecialization: job.degreeSpecialization || '',
+            gender: job.gender || '',
+            companyName: job.companyName || '',
+            companyAddress: job.companyAddress || '',
+            companyWebsite: job.companyWebsite || '',
+            additionalInfo: job.additionalInfo || ''
+          })
+        }
       } else {
         setError(data.message || 'Failed to fetch job details')
       }
@@ -70,13 +99,21 @@ const EditJob = () => {
     setError('')
 
     try {
+      // Ensure numeric fields are sent as numbers
+      const payload = {
+        ...formData,
+        numberOfWorkers: Number(formData.numberOfWorkers) || 1,
+        validityDays: Number(formData.validityDays) || 15,
+        experienceMinYears: formData.experienceMinYears !== '' ? Number(formData.experienceMinYears) : undefined
+      }
+
       const response = await fetch(`${API_URL}/clients/jobs/${jobId}`, {
         method: 'PUT',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       })
 
       const data = await response.json()
@@ -232,6 +269,129 @@ const EditJob = () => {
                 placeholder="Describe the job requirements, responsibilities, and any other relevant details..."
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
               />
+            </div>
+
+            {/* --- Additional Job / Company Fields --- */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Department</label>
+                <input
+                  type="text"
+                  name="department"
+                  value={formData.department}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border rounded-md p-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Employment Type</label>
+                <input
+                  type="text"
+                  name="employmentType"
+                  value={formData.employmentType}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border rounded-md p-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Shift</label>
+                <input
+                  type="text"
+                  name="shift"
+                  value={formData.shift}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border rounded-md p-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Experience (min years)</label>
+                <input
+                  type="number"
+                  name="experienceMinYears"
+                  value={formData.experienceMinYears}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border rounded-md p-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Education</label>
+                <input
+                  type="text"
+                  name="education"
+                  value={formData.education}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border rounded-md p-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Degree / Specialization</label>
+                <input
+                  type="text"
+                  name="degreeSpecialization"
+                  value={formData.degreeSpecialization}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border rounded-md p-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Preferred Gender</label>
+                <input
+                  type="text"
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border rounded-md p-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Company Name</label>
+                <input
+                  type="text"
+                  name="companyName"
+                  value={formData.companyName}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border rounded-md p-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Company Address</label>
+                <input
+                  type="text"
+                  name="companyAddress"
+                  value={formData.companyAddress}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border rounded-md p-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Company Website</label>
+                <input
+                  type="text"
+                  name="companyWebsite"
+                  value={formData.companyWebsite}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border rounded-md p-2"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">Additional Info / Benefits</label>
+                <textarea
+                  name="additionalInfo"
+                  value={formData.additionalInfo}
+                  onChange={handleChange}
+                  className="mt-1 block w-full border rounded-md p-2"
+                />
+              </div>
             </div>
 
             {/* Validity Days */}

@@ -1006,7 +1006,27 @@ try {
 // Create a new job post
 export const createJobPost = async (req, res) => {
   try {
-    const { workType, numberOfWorkers, location, salaryRange, description, contactNumber, validityDays } = req.body;
+    const {
+      workType,
+      numberOfWorkers,
+      location,
+      salaryRange,
+      description,
+      contactNumber,
+      validityDays,
+      // New fields
+      department,
+      employmentType,
+      shift,
+      experienceMinYears,
+      education,
+      degreeSpecialization,
+      gender,
+      companyName,
+      companyAddress,
+      companyWebsite,
+      additionalInfo
+    } = req.body;
 
     // Get client ID from JWT token
     const clientId = req.clint._id;
@@ -1015,7 +1035,7 @@ export const createJobPost = async (req, res) => {
       return res.status(400).json({ message: "Work type, location, and description are required" });
     }
 
-    // Create new job post
+    // Create new job post with expanded fields
     const jobPost = new ClientPost({
       clientId,
       workType,
@@ -1025,7 +1045,18 @@ export const createJobPost = async (req, res) => {
       description,
       contactNumber,
       validityDays: validityDays || 15,
-      paidVisibility: false
+      paidVisibility: false,
+      department,
+      employmentType,
+      shift,
+      experienceMinYears: experienceMinYears ? Number(experienceMinYears) : undefined,
+      education,
+      degreeSpecialization,
+      gender,
+      companyName,
+      companyAddress,
+      companyWebsite,
+      additionalInfo
     });
 
     await jobPost.save();
@@ -1090,7 +1121,27 @@ export const updateJobPost = async (req, res) => {
   try {
     const { jobId } = req.params;
     const clientId = req.clint._id;
-    const { workType, numberOfWorkers, location, salaryRange, description, contactNumber, validityDays } = req.body;
+    const {
+      workType,
+      numberOfWorkers,
+      location,
+      salaryRange,
+      description,
+      contactNumber,
+      validityDays,
+      // New fields
+      department,
+      employmentType,
+      shift,
+      experienceMinYears,
+      education,
+      degreeSpecialization,
+      gender,
+      companyName,
+      companyAddress,
+      companyWebsite,
+      additionalInfo
+    } = req.body;
 
     const jobPost = await ClientPost.findOne({ _id: jobId, clientId });
 
@@ -1106,6 +1157,19 @@ export const updateJobPost = async (req, res) => {
     if (description) jobPost.description = description;
     if (contactNumber) jobPost.contactNumber = contactNumber;
     if (validityDays) jobPost.validityDays = validityDays;
+
+    // Update new fields if provided
+    if (department !== undefined) jobPost.department = department;
+    if (employmentType !== undefined) jobPost.employmentType = employmentType;
+    if (shift !== undefined) jobPost.shift = shift;
+    if (experienceMinYears !== undefined) jobPost.experienceMinYears = experienceMinYears ? Number(experienceMinYears) : undefined;
+    if (education !== undefined) jobPost.education = education;
+    if (degreeSpecialization !== undefined) jobPost.degreeSpecialization = degreeSpecialization;
+    if (gender !== undefined) jobPost.gender = gender;
+    if (companyName !== undefined) jobPost.companyName = companyName;
+    if (companyAddress !== undefined) jobPost.companyAddress = companyAddress;
+    if (companyWebsite !== undefined) jobPost.companyWebsite = companyWebsite;
+    if (additionalInfo !== undefined) jobPost.additionalInfo = additionalInfo;
 
     await jobPost.save();
 
