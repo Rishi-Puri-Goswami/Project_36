@@ -20,6 +20,8 @@ const ClintProfile = () => {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [imgNatural, setImgNatural] = useState({ width: 0, height: 0 })
   const imgRef = useRef(null)
+  const cropContainerRef = useRef(null)
+  const [cropViewport, setCropViewport] = useState(300)
   const [showProfilePreview, setShowProfilePreview] = useState(false)
   const [showEditProfileModal, setShowEditProfileModal] = useState(false)
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false)
@@ -122,7 +124,9 @@ const ClintProfile = () => {
   const onPreviewImageLoad = (e) => {
     const img = e.target
     setImgNatural({ width: img.naturalWidth, height: img.naturalHeight })
-    const viewport = 300
+    // determine viewport from container if available to avoid mismatches
+    const viewport = cropContainerRef.current ? Math.round(cropContainerRef.current.clientWidth) : 300
+    setCropViewport(viewport)
     const displayedHeight = viewport
     const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
     setCropScale(1)
@@ -168,7 +172,7 @@ const ClintProfile = () => {
   const createCroppedBlob = async () => {
     if (!imgRef.current) return null
     const img = imgRef.current
-    const viewport = 300 // px square
+    const viewport = cropViewport || 300 // px square
 
     const displayedHeight = viewport
     const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
