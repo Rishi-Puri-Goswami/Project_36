@@ -12,6 +12,14 @@ const WorkerLogin = () => {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [showForgotModal, setShowForgotModal] = useState(false)
+  const [fpPhone, setFpPhone] = useState('')
+  const [fpOtp, setFpOtp] = useState('')
+  const [fpStep, setFpStep] = useState('phone') // phone, otp, reset
+  const [fpError, setFpError] = useState('')
+  const [fpLoading, setFpLoading] = useState(false)
+  const [fpNewPassword, setFpNewPassword] = useState('')
+  const [fpConfirmPassword, setFpConfirmPassword] = useState('')
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -185,6 +193,7 @@ const WorkerLogin = () => {
               </div>
               <button
                 type="button"
+                onClick={() => { setShowForgotModal(true); setFpPhone(formData.phone || ''); setFpStep('phone'); setFpOtp(''); setFpError('') }}
                 className="text-sm font-semibold text-blue-800 hover:text-blue-900 transition-colors"
               >
                 Forgot password?
@@ -253,6 +262,110 @@ const WorkerLogin = () => {
             </button>
           </div>
         </div>
+
+        {/* Forgot Password Modal */}
+        {showForgotModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black opacity-40" onClick={() => setShowForgotModal(false)}></div>
+            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6 z-50">
+              <h3 className="text-lg font-semibold mb-4">Reset Password</h3>
+              {fpError && <div className="mb-3 text-sm text-red-600">{fpError}</div>}
+
+              {fpStep === 'phone' && (
+                <div className="space-y-4">
+                  <label className="block text-sm text-gray-700">Phone Number</label>
+                  <input type="tel" value={fpPhone} onChange={e => setFpPhone(e.target.value)} placeholder="+91 9876543210" className="w-full px-3 py-2 border rounded" />
+                  <div className="flex gap-2">
+                    <button onClick={async () => {
+                      setFpError(''); setFpLoading(true);
+                      try {
+                        const resp = await fetch(`${API_URL}/workers/forgot-password/send-otp`, {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: fpPhone })
+                        });
+                        const data = await resp.json();
+                        if (resp.ok) {
+                          setFpStep('otp');
+                        } else {
+                          setFpError(data.message || 'Failed to send OTP');
+                        }
+                      } catch (err) { console.error(err); setFpError('Server error'); }
+                      setFpLoading(false);
+                    }} className="px-4 py-2 bg-[#1e40af] text-white rounded">Send OTP</button>
+                    <button onClick={() => setShowForgotModal(false)} className="px-4 py-2 border rounded">Cancel</button>
+                  </div>
+                </div>
+              )}
+
+              {fpStep === 'otp' && (
+                <div className="space-y-4">
+                  <label className="block text-sm text-gray-700">Enter OTP</label>
+                  <input type="text" value={fpOtp} onChange={e => setFpOtp(e.target.value)} placeholder="6-digit code" className="w-full px-3 py-2 border rounded" />
+                  <div className="flex gap-2">
+                    <button onClick={async () => {
+                      setFpError(''); setFpLoading(true);
+                      try {
+                        const resp = await fetch(`${API_URL}/workers/forgot-password/verify-otp`, {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: fpPhone, otp: fpOtp })
+                        });
+                        const data = await resp.json();
+                        if (resp.ok) {
+                          setFpStep('reset');
+                        } else {
+                          setFpError(data.message || 'Invalid OTP');
+                        }
+                      } catch (err) { console.error(err); setFpError('Server error'); }
+                      setFpLoading(false);
+                    }} className="px-4 py-2 bg-[#1e40af] text-white rounded">Verify OTP</button>
+                    <button onClick={async () => {
+                      // resend
+                      setFpError(''); setFpLoading(true);
+                      try {
+                        const resp = await fetch(`${API_URL}/workers/forgot-password/send-otp`, {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: fpPhone })
+                        });
+                        const data = await resp.json();
+                        if (!resp.ok) setFpError(data.message || 'Failed to resend OTP');
+                      } catch (err) { console.error(err); setFpError('Server error'); }
+                      setFpLoading(false);
+                    }} className="px-4 py-2 border rounded">Resend OTP</button>
+                    <button onClick={() => setShowForgotModal(false)} className="px-4 py-2 border rounded">Cancel</button>
+                  </div>
+                </div>
+              )}
+
+              {fpStep === 'reset' && (
+                <div className="space-y-4">
+                  <label className="block text-sm text-gray-700">New Password</label>
+                  <input type="password" value={fpNewPassword} onChange={e => setFpNewPassword(e.target.value)} className="w-full px-3 py-2 border rounded" />
+                  <label className="block text-sm text-gray-700">Confirm Password</label>
+                  <input type="password" value={fpConfirmPassword} onChange={e => setFpConfirmPassword(e.target.value)} className="w-full px-3 py-2 border rounded" />
+                  <div className="flex gap-2">
+                    <button onClick={async () => {
+                      setFpError(''); setFpLoading(true);
+                      if (!fpNewPassword || !fpConfirmPassword) { setFpError('Enter and confirm your new password'); setFpLoading(false); return }
+                      try {
+                        const resp = await fetch(`${API_URL}/workers/forgot-password/reset`, {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: fpPhone, otp: fpOtp, newPassword: fpNewPassword, confirmPassword: fpConfirmPassword })
+                        });
+                        const data = await resp.json();
+                        if (resp.ok) {
+                          // success
+                          setShowForgotModal(false);
+                          setFpPhone(''); setFpOtp(''); setFpNewPassword(''); setFpConfirmPassword(''); setFpStep('phone');
+                          setError('Password reset successful. Please login with your new password.');
+                        } else {
+                          setFpError(data.message || 'Failed to reset password');
+                        }
+                      } catch (err) { console.error(err); setFpError('Server error'); }
+                      setFpLoading(false);
+                    }} className="px-4 py-2 bg-[#1e40af] text-white rounded">Reset Password</button>
+                    <button onClick={() => setShowForgotModal(false)} className="px-4 py-2 border rounded">Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Additional Info */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">

@@ -15,6 +15,13 @@ const WorkerProfile = () => {
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
+  // Cropping state
+  const [cropScale, setCropScale] = useState(1)
+  const [cropPos, setCropPos] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [imgNatural, setImgNatural] = useState({ width: 0, height: 0 })
+  const imgRef = React.useRef(null)
   const [uploadingCoverPhoto, setUploadingCoverPhoto] = useState(false)
   const [showCoverPhotoUploadModal, setShowCoverPhotoUploadModal] = useState(false)
   const [selectedCoverFile, setSelectedCoverFile] = useState(null)
@@ -39,6 +46,7 @@ const WorkerProfile = () => {
   })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
+  const [showProfilePreview, setShowProfilePreview] = useState(false)
 
   useEffect(() => {
     if (!isWorkerAuthenticated()) {
@@ -262,14 +270,108 @@ const WorkerProfile = () => {
     }
   }
 
+  const onPreviewImageLoad = (e) => {
+    const img = e.target
+    setImgNatural({ width: img.naturalWidth, height: img.naturalHeight })
+    // center image horizontally inside square viewport
+    const viewport = 300
+    const displayedHeight = viewport
+    const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
+    setCropScale(1)
+    setCropPos({ x: (viewport - displayedWidth) / 2, y: 0 })
+  }
+
+  const onMouseDown = (e) => {
+    e.preventDefault()
+    setIsDragging(true)
+    setDragStart({ x: e.clientX, y: e.clientY })
+  }
+
+  const onMouseMove = (e) => {
+    if (!isDragging || !imgRef.current) return
+    const dx = e.clientX - dragStart.x
+    const dy = e.clientY - dragStart.y
+    setDragStart({ x: e.clientX, y: e.clientY })
+    setCropPos(prev => ({ x: prev.x + dx, y: prev.y + dy }))
+  }
+
+  const onMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  // Touch handlers
+  const onTouchStart = (e) => {
+    setIsDragging(true)
+    setDragStart({ x: e.touches[0].clientX, y: e.touches[0].clientY })
+  }
+
+  const onTouchMove = (e) => {
+    if (!isDragging) return
+    const dx = e.touches[0].clientX - dragStart.x
+    const dy = e.touches[0].clientY - dragStart.y
+    setDragStart({ x: e.touches[0].clientX, y: e.touches[0].clientY })
+    setCropPos(prev => ({ x: prev.x + dx, y: prev.y + dy }))
+  }
+
+  const onTouchEnd = () => {
+    setIsDragging(false)
+  }
+
+  const createCroppedBlob = async () => {
+    if (!imgRef.current) return null
+    const img = imgRef.current
+    const viewport = 300 // px square
+
+    // displayed size before transform
+    const displayedHeight = viewport
+    const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
+
+    const scale = cropScale
+
+    // compute source rectangle in image natural pixels
+    const sx = Math.max(0, ((0 - cropPos.x) / (displayedWidth * scale)) * img.naturalWidth)
+    const sy = Math.max(0, ((0 - cropPos.y) / (displayedHeight * scale)) * img.naturalHeight)
+    const sWidth = Math.min(img.naturalWidth, (viewport / (displayedWidth * scale)) * img.naturalWidth)
+    const sHeight = Math.min(img.naturalHeight, (viewport / (displayedHeight * scale)) * img.naturalHeight)
+
+    const canvasSize = 600 // final output size
+    const canvas = document.createElement('canvas')
+    canvas.width = canvasSize
+    canvas.height = canvasSize
+    const ctx = canvas.getContext('2d')
+
+    // draw
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, canvasSize, canvasSize)
+    try {
+      ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, canvasSize, canvasSize)
+    } catch (err) {
+      console.error('Error drawing cropped image', err)
+      return null
+    }
+
+    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+  }
+
   const handleUploadPhoto = async () => {
     if (!selectedFile) return
 
     setUploadingPhoto(true)
     try {
       const token = localStorage.getItem('workerToken')
+
+      // create cropped blob
+      const blob = await createCroppedBlob()
+      if (!blob) {
+        setMessage({ type: 'error', text: 'Failed to prepare cropped image' })
+        setUploadingPhoto(false)
+        return
+      }
+
+      const file = new File([blob], selectedFile.name || 'profile.jpg', { type: blob.type })
+
       const formData = new FormData()
-      formData.append('profilePicture', selectedFile)
+      formData.append('profilePicture', file)
 
       const response = await fetch(`${API_URL}/workers/upload-profile-picture`, {
         method: 'POST',
@@ -592,17 +694,28 @@ const WorkerProfile = () => {
             <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6 -mt-16">
               {/* Profile Picture */}
               <div className="relative group flex-shrink-0 mx-auto sm:mx-0">
-                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-white p-2 shadow-lg">
+                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-white p-2 shadow-lg relative group">
                   {worker?.profilePicture ? (
                     <img 
                       src={worker.profilePicture} 
                       alt={worker.name} 
-                      className="w-full h-full rounded-full object-cover"
+                      className="w-full h-full rounded-full object-cover cursor-pointer"
+                      onClick={() => setShowProfilePreview(true)}
                     />
                   ) : (
                     <div className="w-full h-full rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center text-white text-2xl sm:text-4xl font-bold">
                       {worker?.name?.charAt(0).toUpperCase()}
                     </div>
+                  )}
+                  {/* Preview Icon Overlay */}
+                  {worker?.profilePicture && (
+                    <button onClick={() => setShowProfilePreview(true)} title="Preview" className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="bg-black bg-opacity-50 rounded-full p-2">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-4.553a1 1 0 00-1.414-1.414L13.586 8.586M4 12a8 8 0 1016 0 8 8 0 00-16 0z" />
+                        </svg>
+                      </div>
+                    </button>
                   )}
                 </div>
                 {/* Camera Icon Overlay */}
@@ -1290,16 +1403,40 @@ const WorkerProfile = () => {
             </div>
 
             <div className="p-6">
-              {/* Preview */}
+              {/* Preview + Cropper */}
               {previewUrl && (
-                <div className="mb-6 flex justify-center">
-                  <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-gray-500 shadow-lg">
-                    <img 
-                      src={previewUrl} 
-                      alt="Preview" 
-                      className="w-full h-full object-cover"
-                    />
+                <div className="mb-6 flex flex-col items-center">
+                  <div className="w-72 h-72 bg-gray-100 relative overflow-hidden rounded-lg border border-gray-200">
+                    <div
+                      className="absolute top-0 left-0"
+                      style={{ transform: `translate(${cropPos.x}px, ${cropPos.y}px) scale(${cropScale})`, transformOrigin: 'top left', cursor: isDragging ? 'grabbing' : 'grab' }}
+                      onMouseDown={onMouseDown}
+                      onMouseMove={onMouseMove}
+                      onMouseUp={onMouseUp}
+                      onMouseLeave={onMouseUp}
+                      onTouchStart={onTouchStart}
+                      onTouchMove={onTouchMove}
+                      onTouchEnd={onTouchEnd}
+                    >
+                      <img
+                        ref={imgRef}
+                        src={previewUrl}
+                        alt="Preview"
+                        onLoad={onPreviewImageLoad}
+                        style={{ height: '300px', width: 'auto', display: 'block', userSelect: 'none', pointerEvents: 'none' }}
+                      />
+                    </div>
+                    {/* Overlay circle to indicate final avatar crop */}
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      <div className="w-56 h-56 rounded-full ring-4 ring-white/60 shadow-inner"></div>
+                    </div>
                   </div>
+                  <div className="w-72 mt-3 flex items-center gap-3">
+                    <label className="text-sm text-gray-600">Zoom</label>
+                    <input type="range" min="1" max="3" step="0.01" value={cropScale} onChange={(e) => setCropScale(parseFloat(e.target.value))} className="flex-1" />
+                    <button onClick={() => { setCropScale(1); setCropPos({ x: 0, y: 0 }) }} className="px-3 py-1 bg-gray-200 rounded">Reset</button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Drag to reposition, use zoom to scale. The circular area is the final avatar.</p>
                 </div>
               )}
 
@@ -1347,6 +1484,23 @@ const WorkerProfile = () => {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Image Full Preview Modal */}
+      {showProfilePreview && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black opacity-70" onClick={() => setShowProfilePreview(false)}></div>
+          <div className="relative max-w-4xl w-full max-h-full overflow-auto p-4 z-70">
+            <button onClick={() => setShowProfilePreview(false)} className="absolute top-4 right-4 bg-white rounded-full p-2 shadow-lg z-80">
+              <svg className="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="bg-white rounded-lg overflow-hidden p-4 flex items-center justify-center">
+              <img src={worker?.profilePicture || '/default-avatar.png'} alt="Profile Full" className="max-w-full max-h-[80vh] object-contain rounded" />
             </div>
           </div>
         </div>

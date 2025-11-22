@@ -7,6 +7,9 @@ import {
   registerClint,
   verifyClintOtp,
   resendClientOtp,
+  sendClientForgotOtp,
+  verifyClientForgotOtp,
+  resetClientPasswordWithOtp,
   loginClint,
   verifyAuth,
   getProfile,
@@ -44,6 +47,9 @@ const clientRouter = express.Router();
 clientRouter.post('/register', registerClint);
 clientRouter.post('/verify-otp', verifyClintOtp);
 clientRouter.post('/resend-otp', resendClientOtp);
+clientRouter.post('/forgot-password/send-otp', sendClientForgotOtp);
+clientRouter.post('/forgot-password/verify-otp', verifyClientForgotOtp);
+clientRouter.post('/forgot-password/reset', resetClientPasswordWithOtp);
 clientRouter.post('/login', loginClint);
 clientRouter.get('/verify-auth', verifyAuth);
 clientRouter.get('/profile', getProfile);

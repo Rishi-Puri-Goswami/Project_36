@@ -229,6 +229,130 @@ export const resendWorkerOtp = async (req, res) => {
   }
 };
 
+// ===================== FORGOT PASSWORD (Worker) =====================
+export const sendWorkerForgotOtp = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ message: "Phone number is required", status: 400 });
+
+    const worker = await Worker.findOne({ phone });
+    if (!worker) return res.status(404).json({ message: "Worker not found", status: 404 });
+
+    // Prevent frequent resends (cooldown 1 minute)
+    if (worker.otp && worker.otp.lastSentAt && (new Date() - worker.otp.lastSentAt < 60 * 1000)) {
+      return res.status(429).json({ message: "OTP already sent. Please wait 1 minute before requesting again.", status: 429 });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    console.log("Forgot-password OTP for worker:", otp);
+
+    const smsResult = await sendOtpSms(phone, otp);
+    if (!smsResult.success) {
+      return res.status(500).json({ message: "Failed to send OTP to phone number", status: 500, error: smsResult.message });
+    }
+
+    worker.otp = {
+      code: otp.toString(),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      attempts: 0,
+      lastSentAt: new Date()
+    };
+    await worker.save();
+
+    return res.status(200).json({ message: "OTP sent successfully", status: 200 });
+  } catch (error) {
+    console.error("Error in sendWorkerForgotOtp:", error);
+    return res.status(500).json({ message: "Internal server error", status: 500 });
+  }
+};
+
+export const resetWorkerPasswordWithOtp = async (req, res) => {
+  try {
+    const { phone, otp, newPassword, confirmPassword } = req.body;
+
+    if (!phone || !otp || !newPassword || !confirmPassword) {
+      return res.status(400).json({ message: "Phone, OTP, new password and confirm password are required", status: 400 });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "New passwords do not match", status: 400 });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "New password must be at least 6 characters long", status: 400 });
+    }
+
+    const worker = await Worker.findOne({ phone });
+    if (!worker) return res.status(404).json({ message: "Worker not found", status: 404 });
+
+    if (!worker.otp || !worker.otp.code) {
+      return res.status(400).json({ message: "No OTP requested for this number", status: 400 });
+    }
+
+    if (worker.otp.expiresAt < new Date()) {
+      return res.status(400).json({ message: "OTP expired", status: 400 });
+    }
+
+    if (worker.otp.attempts >= 5) {
+      return res.status(400).json({ message: "Max OTP attempts exceeded", status: 400 });
+    }
+
+    if (worker.otp.code !== otp.toString()) {
+      worker.otp.attempts += 1;
+      await worker.save();
+      return res.status(400).json({ message: "Invalid OTP", status: 400 });
+    }
+
+    // Hash new password and save
+    const saltRounds = 10;
+    const hashed = await bcrypt.hash(newPassword, saltRounds);
+    worker.password = hashed;
+    // clear otp so it can't be reused
+    worker.otp = undefined;
+    await worker.save();
+
+    return res.status(200).json({ message: "Password reset successfully", status: 200 });
+  } catch (error) {
+    console.error("Error in resetWorkerPasswordWithOtp:", error);
+    return res.status(500).json({ message: "Internal server error", status: 500 });
+  }
+};
+
+// Verify OTP for forgot-password flow (worker)
+export const verifyWorkerForgotOtp = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+    if (!phone || !otp) return res.status(400).json({ message: "Phone and OTP required", status: 400 });
+
+    const worker = await Worker.findOne({ phone });
+    if (!worker) return res.status(404).json({ message: "Worker not found", status: 404 });
+
+    if (!worker.otp || !worker.otp.code) {
+      return res.status(400).json({ message: "No OTP requested for this number", status: 400 });
+    }
+
+    if (worker.otp.expiresAt < new Date()) {
+      return res.status(400).json({ message: "OTP expired", status: 400 });
+    }
+
+    if (worker.otp.attempts >= 5) {
+      return res.status(400).json({ message: "Max OTP attempts exceeded", status: 400 });
+    }
+
+    if (worker.otp.code !== otp.toString()) {
+      worker.otp.attempts += 1;
+      await worker.save();
+      return res.status(400).json({ message: "Invalid OTP", status: 400 });
+    }
+
+    // OTP valid — do not clear it here, allow reset endpoint to clear after password change
+    return res.status(200).json({ message: "OTP verified", status: 200 });
+  } catch (error) {
+    console.error("Error in verifyWorkerForgotOtp:", error);
+    return res.status(500).json({ message: "Internal server error", status: 500 });
+  }
+};
+
 export const loginWorker = async (req, res) => {
   try {
     const { phone, password } = req.body;

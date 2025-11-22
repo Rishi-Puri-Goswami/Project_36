@@ -9,6 +9,7 @@ import  razorpay  from "../config/razorpay.js";
 import { validatePaymentVerification } from "razorpay/dist/utils/razorpay-utils.js";
 import { Plan } from "../models/planes_model.js";
 import { sendOtpSms } from "../utils/smsService.js";
+import bcrypt from "bcrypt";
 import imagekit from "../config/imagekit.js";
 
 export const registerClint = async (req , res )=>{
@@ -223,6 +224,128 @@ export const resendClientOtp = async (req, res) => {
   }
 };
 
+// ===================== FORGOT PASSWORD (Client) =====================
+export const sendClientForgotOtp = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ message: "Phone number is required", status: 400 });
+
+    const client = await Client.findOne({ phone });
+    if (!client) return res.status(404).json({ message: "Client not found", status: 404 });
+
+    // Prevent frequent resends (cooldown 1 minute)
+    if (client.otp && client.otp.lastSentAt && (new Date() - client.otp.lastSentAt < 60 * 1000)) {
+      return res.status(429).json({ message: "OTP already sent. Please wait 1 minute before requesting again.", status: 429 });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    console.log("Forgot-password OTP for client:", otp);
+
+    const smsResult = await sendOtpSms(phone, otp);
+    if (!smsResult.success) {
+      return res.status(500).json({ message: "Failed to send OTP to phone number", status: 500, error: smsResult.message });
+    }
+
+    client.otp = {
+      code: otp.toString(),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      attempts: 0,
+      lastSentAt: new Date()
+    };
+    await client.save();
+
+    return res.status(200).json({ message: "OTP sent successfully", status: 200 });
+  } catch (error) {
+    console.error("Error in sendClientForgotOtp:", error);
+    return res.status(500).json({ message: "Internal server error", status: 500 });
+  }
+};
+
+export const verifyClientForgotOtp = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+    if (!phone || !otp) return res.status(400).json({ message: "Phone and OTP required", status: 400 });
+
+    const client = await Client.findOne({ phone });
+    if (!client) return res.status(404).json({ message: "Client not found", status: 404 });
+
+    if (!client.otp || !client.otp.code) {
+      return res.status(400).json({ message: "No OTP requested for this number", status: 400 });
+    }
+
+    if (client.otp.expiresAt < new Date()) {
+      return res.status(400).json({ message: "OTP expired", status: 400 });
+    }
+
+    if (client.otp.attempts >= 5) {
+      return res.status(400).json({ message: "Max OTP attempts exceeded", status: 400 });
+    }
+
+    if (client.otp.code !== otp.toString()) {
+      client.otp.attempts += 1;
+      await client.save();
+      return res.status(400).json({ message: "Invalid OTP", status: 400 });
+    }
+
+    return res.status(200).json({ message: "OTP verified", status: 200 });
+  } catch (error) {
+    console.error("Error in verifyClientForgotOtp:", error);
+    return res.status(500).json({ message: "Internal server error", status: 500 });
+  }
+};
+
+export const resetClientPasswordWithOtp = async (req, res) => {
+  try {
+    const { phone, otp, newPassword, confirmPassword } = req.body;
+
+    if (!phone || !otp || !newPassword || !confirmPassword) {
+      return res.status(400).json({ message: "Phone, OTP, new password and confirm password are required", status: 400 });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "New passwords do not match", status: 400 });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "New password must be at least 6 characters long", status: 400 });
+    }
+
+    const client = await Client.findOne({ phone });
+    if (!client) return res.status(404).json({ message: "Client not found", status: 404 });
+
+    if (!client.otp || !client.otp.code) {
+      return res.status(400).json({ message: "No OTP requested for this number", status: 400 });
+    }
+
+    if (client.otp.expiresAt < new Date()) {
+      return res.status(400).json({ message: "OTP expired", status: 400 });
+    }
+
+    if (client.otp.attempts >= 5) {
+      return res.status(400).json({ message: "Max OTP attempts exceeded", status: 400 });
+    }
+
+    if (client.otp.code !== otp.toString()) {
+      client.otp.attempts += 1;
+      await client.save();
+      return res.status(400).json({ message: "Invalid OTP", status: 400 });
+    }
+
+    // Hash new password and save
+    const saltRounds = 10;
+    const hashed = await bcrypt.hash(newPassword, saltRounds);
+    client.password = hashed;
+    // clear otp so it can't be reused
+    client.otp = undefined;
+    await client.save();
+
+    return res.status(200).json({ message: "Password reset successfully", status: 200 });
+  } catch (error) {
+    console.error("Error in resetClientPasswordWithOtp:", error);
+    return res.status(500).json({ message: "Internal server error", status: 500 });
+  }
+};
+
 export const loginClint = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -242,8 +365,26 @@ export const loginClint = async (req, res) => {
       return res.status(403).json({ message: "Please verify your phone number first", status: 403 });
     }
 
-    // Check password (Note: You should use bcrypt to hash passwords in production)
-    if (client.password !== password) {
+    // Check password using bcrypt (handle both hashed and plain text passwords during transition)
+    let isPasswordValid = false;
+    if (client.password && (client.password.startsWith('$2a$') || client.password.startsWith('$2b$') || client.password.startsWith('$2y$'))) {
+      // Password is hashed, use bcrypt.compare
+      isPasswordValid = await bcrypt.compare(password, client.password);
+    } else {
+      // Password is plain text, do direct comparison (for backward compatibility)
+      isPasswordValid = (client.password === password);
+
+      // If login succeeds with plain text, hash the password for future logins
+      if (isPasswordValid) {
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        client.password = hashedPassword;
+        await client.save();
+        console.log(`🔐 Client ${client.name} password automatically hashed during login`);
+      }
+    }
+
+    if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid email or password", status: 401 });
     }
 

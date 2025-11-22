@@ -7,6 +7,9 @@ import {
   getWorkerProfile,
   updateWorkerProfile,
   changeWorkerPassword,
+  sendWorkerForgotOtp,
+  resetWorkerPasswordWithOtp,
+  verifyWorkerForgotOtp,
   deleteWorkerProfile,
   submitWorkerProfile, 
   getWorkerById, 
@@ -29,6 +32,10 @@ const workerrouter = express.Router();
 workerrouter.post('/register', registerWorker);
 workerrouter.post('/verify-otp', verifyWorkerOtp);
 workerrouter.post('/resend-otp', resendWorkerOtp);
+// Forgot password (send otp & reset)
+workerrouter.post('/forgot-password/send-otp', sendWorkerForgotOtp);
+workerrouter.post('/forgot-password/reset', resetWorkerPasswordWithOtp);
+workerrouter.post('/forgot-password/verify-otp', verifyWorkerForgotOtp);
 workerrouter.post('/login', loginWorker);
 workerrouter.get('/profile', worker_auth, getWorkerProfile);
 workerrouter.put('/update-profile', worker_auth, updateWorkerProfile);
