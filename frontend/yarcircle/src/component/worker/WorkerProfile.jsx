@@ -857,6 +857,7 @@ const WorkerProfile = () => {
             {/* Upload Cover Photo Icon */}
             <label 
               htmlFor="worker-cover-photo-upload"
+              onClick={(e) => e.stopPropagation()}
               className="absolute bottom-2 right-2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full p-2 shadow-lg cursor-pointer transition-all opacity-0 group-hover:opacity-100"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -867,6 +868,7 @@ const WorkerProfile = () => {
                 id="worker-cover-photo-upload"
                 type="file"
                 accept="image/*"
+                onClick={(e) => e.stopPropagation()}
                 onChange={handleCoverPhotoSelect}
                 className="hidden"
               />
