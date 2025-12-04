@@ -13,11 +13,16 @@ import bcrypt from "bcrypt";
 
 export const registerWorker = async (req, res) => {
   try {
-    const { name, email, password, phone, workType, location, yearsOfExperience, age , bio, pincode } = req.body;
+    const { name, email, password, phone, workType, location, village, district, state, yearsOfExperience, age , bio, pincode } = req.body;
 
     // Validation
     if (!name || !phone || !password || !workType) {
       return res.status(400).json({ message: "Name, phone, password and work type are required", status: 400 });
+    }
+
+    // Require structured location fields for better accuracy
+    if (!village || !district || !state) {
+      return res.status(400).json({ message: "Village, district and state are required for accurate location", status: 400 });
     }
 
     // Check if worker already exists with this phone number
@@ -65,7 +70,11 @@ export const registerWorker = async (req, res) => {
       workType,
       bio,
       pincode: pincode || undefined,
-      location: location || undefined,
+      village: village || undefined,
+      district: district || undefined,
+      state: state || undefined,
+      // Keep `location` for backward compatibility (combined string)
+      location: location || (village && district && state ? `${village}, ${district}, ${state}` : undefined),
       yearsOfExperience: yearsOfExperience || 0,
       age: age || undefined,
       otp: {
@@ -419,7 +428,10 @@ export const loginWorker = async (req, res) => {
         phone: worker.phone,
         email: worker.email,
         workType: worker.workType,
-        location: worker.location
+        location: worker.location,
+        village: worker.village,
+        district: worker.district,
+        state: worker.state
       }
     });
 
@@ -453,7 +465,7 @@ export const getWorkerProfile = async (req, res) => {
 export const updateWorkerProfile = async (req, res) => {
   try {
     const workerId = req.worker._id;
-    const { name, email, age, workType, location, yearsOfExperience } = req.body;
+    const { name, email, age, workType, location, village, district, state, yearsOfExperience } = req.body;
 
     // Find worker
     const worker = await Worker.findById(workerId);
@@ -466,7 +478,15 @@ export const updateWorkerProfile = async (req, res) => {
     if (email !== undefined) worker.email = email;
     if (age !== undefined) worker.age = age;
     if (workType) worker.workType = workType;
-    if (location !== undefined) worker.location = location;
+    if (village !== undefined) worker.village = village;
+    if (district !== undefined) worker.district = district;
+    if (state !== undefined) worker.state = state;
+    // Update `location` if explicitly provided, otherwise update from structured fields when present
+    if (location !== undefined) {
+      worker.location = location;
+    } else if (village && district && state) {
+      worker.location = `${village}, ${district}, ${state}`;
+    }
     if (yearsOfExperience !== undefined) worker.yearsOfExperience = yearsOfExperience;
 
     await worker.save();
@@ -490,7 +510,7 @@ export const updateWorkerProfile = async (req, res) => {
 
 export const submitWorkerProfile = async (req, res) => {
   try {
-    const { name, contactNumber, email, age, workType, yearsOfExperience, location } = req.body;
+    const { name, contactNumber, email, age, workType, yearsOfExperience, location, village, district, state, pincode } = req.body;
     // files: workPhotos (array), idProof (single)
     const workPhotos = (req.files && req.files.workPhotos) ? req.files.workPhotos.map(f => f.path) : [];
     const idProof = (req.files && req.files.idProof && req.files.idProof[0]) ? req.files.idProof[0].path : undefined;
@@ -509,7 +529,11 @@ export const submitWorkerProfile = async (req, res) => {
       age,
       workType,
       yearsOfExperience,
-      location,
+      village: village || undefined,
+      district: district || undefined,
+      state: state || undefined,
+      location: location || (village && district && state ? `${village}, ${district}, ${state}` : undefined),
+      pincode: pincode || undefined,
       workPhotos,
       idProof,
       status: "pending"

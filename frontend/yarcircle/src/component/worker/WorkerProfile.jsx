@@ -39,6 +39,10 @@ const WorkerProfile = () => {
   const [coverCroppedPreviewUrl, setCoverCroppedPreviewUrl] = useState(null)
   const [postImages, setPostImages] = useState([])
   const [postImagePreviews, setPostImagePreviews] = useState([])
+  const [isMobile, setIsMobile] = useState(false)
+  // carousel index per postId when on mobile
+  const [postCarouselIndex, setPostCarouselIndex] = useState({})
+  const touchStartXRef = React.useRef(null)
   const [newPost, setNewPost] = useState({
     title: '',
     description: '',
@@ -67,6 +71,11 @@ const WorkerProfile = () => {
     }
     fetchWorkerData()
     fetchWorkerPosts()
+    // detect mobile screen
+    const onResize = () => setIsMobile(window.innerWidth < 640)
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [navigate])
 
   const fetchWorkerData = async () => {
@@ -813,33 +822,37 @@ const WorkerProfile = () => {
   return (
     <div className="min-h-screen rubik-regular bg-neutral-200">
       {/* Header */}
-      <header className=" backdrop-blur-2xl  shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <header className="backdrop-blur-2xl shadow-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-2 sm:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button 
               onClick={() => navigate('/worker/dashboard')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-1 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            <div className="bg-black rounded-lg p-2">
+            <div className="bg-black rounded-lg p-1 sm:p-2">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-800">My Profile</h1>
-              <p className="text-xs text-gray-500">View and manage your profile</p>
+              <h1 className="text-base sm:text-xl font-bold text-gray-800">My Profile</h1>
+              <p className="hidden sm:block text-xs text-gray-500">View and manage your profile</p>
             </div>
           </div>
           
           <button 
             onClick={handleLogout}
-            className="px-4 py-2 bg-black text-white rounded-lg font-semibold hover:bg-gray-900 transition-colors text-sm"
+            className="px-1 py-1 sm:px-4 sm:py-2 bg-black text-white rounded-lg font-semibold hover:bg-gray-900 transition-colors text-xs sm:text-sm flex items-center gap-1 sm:gap-2"
+            title="Logout"
           >
-            Logout
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
+            </svg>
+            <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </header>
@@ -949,9 +962,13 @@ const WorkerProfile = () => {
                 {!isEditing ? (
                   <button
                     onClick={handleEditClick}
-                    className="px-4 py-2 bg-blue-800 text-white rounded-lg font-semibold hover:bg-blue-900 transition-colors text-sm whitespace-nowrap"
+                    className="px-2 py-1 sm:px-4 sm:py-2 bg-blue-800 text-white rounded-lg font-semibold hover:bg-blue-900 transition-colors text-sm flex items-center gap-2"
+                    title="Edit Profile"
                   >
-                    Edit Profile
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                    <span className="hidden sm:inline">Edit Profile</span>
                   </button>
                 ) : (
                   <div className="flex flex-col sm:flex-row gap-2">
@@ -1047,10 +1064,10 @@ const WorkerProfile = () => {
         {/* Tabs */}
         <div id="profile-tabs" className="bg-white rounded-lg shadow-md mb-6">
           <div className="border-b border-gray-200">
-            <nav className="flex -mb-px">
+            <nav className="flex -mb-px overflow-x-auto no-scrollbar">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`px-6 py-4 text-sm font-semibold border-b-2 transition-colors ${
+                className={`px-4 sm:px-6 py-4 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
                   activeTab === 'overview'
                     ? 'border-blue-800 text-blue-800'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1060,7 +1077,7 @@ const WorkerProfile = () => {
               </button>
               <button
                 onClick={() => setActiveTab('applications')}
-                className={`px-6 py-4 text-sm font-semibold border-b-2 transition-colors ${
+                className={`px-4 sm:px-6 py-4 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
                   activeTab === 'applications'
                     ? 'border-blue-800 text-blue-800'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1070,7 +1087,7 @@ const WorkerProfile = () => {
               </button>
               <button
                 onClick={() => setActiveTab('posts')}
-                className={`px-6 py-4 text-sm font-semibold border-b-2 transition-colors ${
+                className={`px-4 sm:px-6 py-4 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
                   activeTab === 'posts'
                     ? 'border-blue-800 text-blue-800'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1080,7 +1097,7 @@ const WorkerProfile = () => {
               </button>
               <button
                 onClick={() => setActiveTab('details')}
-                className={`px-6 py-4 text-sm font-semibold border-b-2 transition-colors ${
+                className={`px-4 sm:px-6 py-4 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors ${
                   activeTab === 'details'
                     ? 'border-blue-800 text-blue-800'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1333,52 +1350,126 @@ const WorkerProfile = () => {
                 {posts.length > 0 ? (
                   <div className="space-y-4">
                     {posts.map((post) => (
-                      <div key={post._id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h4 className="text-lg font-semibold text-gray-800 mb-2">{post.title}</h4>
-                            <p className="text-gray-600 mb-3">{post.description}</p>
+                      <div key={post._id} className="border border-gray-200 rounded-lg p-4 sm:p-6 hover:shadow-md transition-shadow">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-3 gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-base sm:text-lg font-semibold text-gray-800 mb-2 truncate">{post.title}</h4>
+                            <p className="text-sm sm:text-base text-gray-600 mb-3 break-words whitespace-normal">{post.description}</p>
                           </div>
-                          <button
-                            onClick={() => handleDeletePost(post._id)}
-                            className="ml-4 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete post"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                          <div className="flex-shrink-0 self-start">
+                            <button
+                              onClick={() => handleDeletePost(post._id)}
+                              className="ml-0 sm:ml-4 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete post"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                         
                         {/* Post Images */}
                         {post.images && post.images.length > 0 && (
-                          <div className="mb-4">
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-                              {post.images.map((imageUrl, index) => (
-                                <div key={index} className="relative group aspect-square rounded-lg overflow-hidden bg-gray-100">
-                                  <img
-                                    src={imageUrl}
-                                    alt={`Post image ${index + 1}`}
-                                    className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
-                                    onClick={() => window.open(imageUrl, '_blank')}
-                                  />
-                                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
-                                    <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                                    </svg>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                            {post.images.length > 1 && (
-                              <p className="text-xs text-gray-500 mt-2">
-                                <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                                {post.images.length} images • Click to view full size
-                              </p>
-                            )}
-                          </div>
+                                    <div className="mb-4">
+                                      {isMobile ? (
+                                        // Mobile: single-image carousel (Instagram-like)
+                                        <div className="w-full">
+                                          {(() => {
+                                            const idx = postCarouselIndex[post._id] ?? 0
+                                            const url = post.images[idx]
+                                            return (
+                                              <div className="relative rounded-lg overflow-hidden bg-gray-100">
+                                                <img
+                                                  src={url}
+                                                  alt={`Post image ${idx + 1}`}
+                                                  className="w-full h-64 object-cover cursor-pointer"
+                                                  onClick={() => window.open(url, '_blank')}
+                                                  onTouchStart={(e) => { touchStartXRef.current = e.touches[0].clientX }}
+                                                  onTouchEnd={(e) => {
+                                                    const startX = touchStartXRef.current
+                                                    if (!startX) return
+                                                    const endX = (e.changedTouches && e.changedTouches[0].clientX) || 0
+                                                    const dx = endX - startX
+                                                    // threshold
+                                                    if (dx > 40) {
+                                                      // swipe right -> prev
+                                                      setPostCarouselIndex(prev => ({ ...prev, [post._id]: Math.max(0, (prev[post._id] ?? 0) - 1) }))
+                                                    } else if (dx < -40) {
+                                                      // swipe left -> next
+                                                      setPostCarouselIndex(prev => ({ ...prev, [post._id]: ((prev[post._id] ?? 0) + 1) % post.images.length }))
+                                                    }
+                                                    touchStartXRef.current = null
+                                                  }}
+                                                />
+
+                                                {/* Prev / Next buttons */}
+                                                {post.images.length > 1 && (
+                                                  <>
+                                                    <button
+                                                      onClick={() => setPostCarouselIndex(prev => ({ ...prev, [post._id]: Math.max(0, (prev[post._id] ?? 0) - 1) }))}
+                                                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-40 text-white rounded-full p-2"
+                                                      aria-label="Previous image"
+                                                    >
+                                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                                      </svg>
+                                                    </button>
+                                                    <button
+                                                      onClick={() => setPostCarouselIndex(prev => ({ ...prev, [post._id]: ((prev[post._id] ?? 0) + 1) % post.images.length }))}
+                                                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-40 text-white rounded-full p-2"
+                                                      aria-label="Next image"
+                                                    >
+                                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                      </svg>
+                                                    </button>
+                                                    {/* Dots */}
+                                                    <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-2">
+                                                      {post.images.map((_, i) => (
+                                                        <button
+                                                          key={i}
+                                                          onClick={() => setPostCarouselIndex(prev => ({ ...prev, [post._id]: i }))}
+                                                          className={`w-2 h-2 rounded-full ${i === (postCarouselIndex[post._id] ?? 0) ? 'bg-white' : 'bg-white/60'}`}
+                                                          aria-label={`Go to image ${i + 1}`}
+                                                        />
+                                                      ))}
+                                                    </div>
+                                                  </>
+                                                )}
+                                              </div>
+                                            )
+                                          })()}
+                                        </div>
+                                      ) : (
+                                        // Desktop: grid of thumbnails
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                                          {post.images.map((imageUrl, index) => (
+                                            <div key={index} className="relative group aspect-square rounded-lg overflow-hidden bg-gray-100">
+                                              <img
+                                                src={imageUrl}
+                                                alt={`Post image ${index + 1}`}
+                                                className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
+                                                onClick={() => window.open(imageUrl, '_blank')}
+                                              />
+                                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
+                                                <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                                </svg>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {post.images.length > 1 && !isMobile && (
+                                        <p className="text-xs text-gray-500 mt-2">
+                                          <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                          </svg>
+                                          {post.images.length} images • Click to view full size
+                                        </p>
+                                      )}
+                                    </div>
                         )}
                         
                         <div className="grid md:grid-cols-3 gap-3 text-sm">

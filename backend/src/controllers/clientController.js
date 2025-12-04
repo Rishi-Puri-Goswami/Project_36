@@ -482,7 +482,8 @@ export const getProfile = async (req, res) => {
         address: client.address,
         role: client.role,
         otpVerified: client.otpVerified,
-        profilePicture: client.profilePicture
+        profilePicture: client.profilePicture,
+        coverPhoto: client.coverPhoto
       }
     });
 
@@ -2116,6 +2117,44 @@ export const getImageKitAuthParams = async (req, res) => {
   } catch (error) {
     console.error("Error getting ImageKit auth params:", error);
     return res.status(500).json({ error: "Failed to get authentication parameters" });
+  }
+};
+
+// 🖼️ Upload Client Cover Photo using ImageKit
+export const uploadClientCoverPhoto = async (req, res) => {
+  try {
+    const clientId = req.user._id;
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Upload to ImageKit
+    const uploadResponse = await imagekit.upload({
+      file: req.file.buffer.toString('base64'),
+      fileName: `client_cover_${clientId}_${Date.now()}.${req.file.mimetype.split('/')[1]}`,
+      folder: '/cover_photos/clients',
+      useUniqueFileName: true
+    });
+
+    // Update client cover photo URL in database
+    const client = await Client.findByIdAndUpdate(
+      clientId,
+      { coverPhoto: uploadResponse.url },
+      { new: true }
+    ).select('-password');
+
+    console.log(`🖼️ Client ${client.name} cover photo updated`);
+
+    return res.status(200).json({
+      message: "Cover photo uploaded successfully",
+      coverPhoto: uploadResponse.url,
+      client: client
+    });
+
+  } catch (error) {
+    console.error("Error uploading client cover photo:", error);
+    return res.status(500).json({ error: "Failed to upload cover photo" });
   }
 };
 

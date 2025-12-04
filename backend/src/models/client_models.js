@@ -19,6 +19,7 @@ const ClientSchema = new mongoose.Schema({
   otpVerified: { type: Boolean, default: false },
   otp: { code: String  , expiresAt : Date , attempts : { type : Number , default : 0 }, lastSentAt: Date },
   profilePicture: String,
+  coverPhoto: String,
   numberOfPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: "ClientPost" }],
   Subscription: {
   type: mongoose.Schema.Types.ObjectId,

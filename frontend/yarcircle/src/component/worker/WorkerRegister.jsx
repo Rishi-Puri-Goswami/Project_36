@@ -12,7 +12,9 @@ const WorkerRegister = () => {
     confirmPassword: '',
     workType: '',
     email: '',
-    location: '',
+    village: '',
+    district: '',
+    state: '',
     pincode: '',
     bio: '',
     yearsOfExperience: '',
@@ -24,6 +26,7 @@ const WorkerRegister = () => {
   const [loading, setLoading] = useState(false)
   const [otpLoading, setOtpLoading] = useState(false)
   const [registeredPhone, setRegisteredPhone] = useState('')
+  const [customWorkType, setCustomWorkType] = useState('')
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -34,6 +37,11 @@ const WorkerRegister = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target
+    // support updating formData or customWorkType
+    if (name === 'customWorkType') {      
+      setCustomWorkType(value)
+      return
+    }
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -48,6 +56,20 @@ const WorkerRegister = () => {
     // Validation
     if (!formData.name || !formData.phone || !formData.password || !formData.workType) {
       setError('Please fill in all required fields')
+      setLoading(false)
+      return
+    }
+
+    // Require village/district/state for accurate location
+    if (!formData.village || !formData.district || !formData.state) {
+      setError('Please provide Village, District and State')
+      setLoading(false)
+      return
+    }
+
+    // If 'Other' selected, require customWorkType
+    if (formData.workType === 'Other' && !customWorkType.trim()) {
+      setError('Please specify your work type')
       setLoading(false)
       return
     }
@@ -75,9 +97,11 @@ const WorkerRegister = () => {
           name: formData.name,
           phone: formData.phone,
           password: formData.password,
-          workType: formData.workType,
+          workType: formData.workType === 'Other' ? customWorkType.trim() : formData.workType,
+          village: formData.village || undefined,
+          district: formData.district || undefined,
+          state: formData.state || undefined,
           email: formData.email || undefined,
-          location: formData.location || undefined,
           pincode: formData.pincode || undefined,
           bio: formData.bio || undefined,
           yearsOfExperience: formData.yearsOfExperience ? parseInt(formData.yearsOfExperience) : undefined,
@@ -282,24 +306,72 @@ const WorkerRegister = () => {
                   <option key={type} value={type}>{type}</option>
                 ))}
               </select>
+              {/* Custom Work Type when Other is selected */}
+              {formData.workType === 'Other' && (
+                <div className="mt-3">
+                  <label htmlFor="customWorkType" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Please specify your work type <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="customWorkType"
+                    name="customWorkType"
+                    value={customWorkType}
+                    onChange={handleChange}
+                    placeholder="e.g., Solar Panel Installer"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
+                  />
+                </div>
+              )}
             </div>
 
-            {/* Location and Pincode */}
+            {/* Village / District / State / Pincode */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="location" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Location
+                <label htmlFor="village" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Village <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  id="location"
-                  name="location"
-                  value={formData.location}
+                  id="village"
+                  name="village"
+                  value={formData.village}
                   onChange={handleChange}
-                  placeholder="e.g., Mumbai, Maharashtra"
+                  placeholder="e.g., Santacruz"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
                 />
               </div>
+
+              <div>
+                <label htmlFor="district" className="block text-sm font-semibold text-gray-700 mb-2">
+                  District <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="district"
+                  name="district"
+                  value={formData.district}
+                  onChange={handleChange}
+                  placeholder="e.g., Mumbai Suburban"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="state" className="block text-sm font-semibold text-gray-700 mb-2">
+                  State <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="state"
+                  name="state"
+                  value={formData.state}
+                  onChange={handleChange}
+                  placeholder="e.g., Maharashtra"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all"
+                />
+              </div>
+
               <div>
                 <label htmlFor="pincode" className="block text-sm font-semibold text-gray-700 mb-2">
                   Pincode

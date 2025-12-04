@@ -22,6 +22,23 @@ const ClintProfile = () => {
   const imgRef = useRef(null)
   const cropContainerRef = useRef(null)
   const [cropViewport, setCropViewport] = useState(300)
+  // Cover photo state (based on worker implementation)
+  const [uploadingCoverPhoto, setUploadingCoverPhoto] = useState(false)
+  const [showCoverPhotoUploadModal, setShowCoverPhotoUploadModal] = useState(false)
+  const [selectedCoverFile, setSelectedCoverFile] = useState(null)
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState(null)
+  // Cover cropping state
+  const coverImgRef = useRef(null)
+  const coverContainerRef = useRef(null)
+  const [coverCropScale, setCoverCropScale] = useState(1)
+  const [coverCropPos, setCoverCropPos] = useState({ x: 0, y: 0 })
+  const [coverIsDragging, setCoverIsDragging] = useState(false)
+  const [coverDragStart, setCoverDragStart] = useState({ x: 0, y: 0 })
+  const [coverImgNatural, setCoverImgNatural] = useState({ width: 0, height: 0 })
+  const [coverViewport, setCoverViewport] = useState({ w: 0, h: 0 })
+  const [coverMinScale, setCoverMinScale] = useState(1)
+  const [coverCroppedPreviewUrl, setCoverCroppedPreviewUrl] = useState(null)
+  const [showCoverPreview, setShowCoverPreview] = useState(false)
   const [showProfilePreview, setShowProfilePreview] = useState(false)
   const [showEditProfileModal, setShowEditProfileModal] = useState(false)
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false)
@@ -256,6 +273,234 @@ const ClintProfile = () => {
     setPreviewUrl(null)
   }
 
+  // Cover photo handlers
+  const handleCoverPhotoSelect = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file')
+        return
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB')
+        return
+      }
+
+      setSelectedCoverFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setCoverPreviewUrl(reader.result)
+        setCoverCropScale(1)
+        setCoverCropPos({ x: 0, y: 0 })
+      }
+      reader.readAsDataURL(file)
+      setShowCoverPhotoUploadModal(true)
+    }
+  }
+
+  const onCoverPreviewLoad = (e) => {
+    const img = e.target
+    setCoverImgNatural({ width: img.naturalWidth, height: img.naturalHeight })
+    const container = coverContainerRef.current
+    const vw = container ? Math.round(container.clientWidth) : 900
+    const vh = Math.round(vw * 0.3)
+    setCoverViewport({ w: vw, h: vh })
+    const minScale = Math.max(vw / img.naturalWidth, vh / img.naturalHeight)
+    setCoverMinScale(minScale)
+    const initialScale = Math.max(1, minScale)
+    setCoverCropScale(initialScale)
+    const displayedHeight = vh
+    const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
+    const visibleW = displayedWidth * initialScale
+    const visibleH = displayedHeight * initialScale
+    const initX = Math.round((vw - visibleW) / 2)
+    const initY = Math.round((vh - visibleH) / 2)
+    setCoverCropPos({ x: initX, y: initY })
+  }
+
+  const onCoverMouseDown = (e) => {
+    e.preventDefault()
+    setCoverIsDragging(true)
+    setCoverDragStart({ x: e.clientX, y: e.clientY })
+  }
+
+  const onCoverMouseMove = (e) => {
+    if (!coverIsDragging || !coverImgRef.current) return
+    const dx = e.clientX - coverDragStart.x
+    const dy = e.clientY - coverDragStart.y
+    setCoverDragStart({ x: e.clientX, y: e.clientY })
+    setCoverCropPos(prev => clampCoverPos({ x: prev.x + dx, y: prev.y + dy }, coverCropScale))
+  }
+
+  const onCoverMouseUp = () => {
+    setCoverIsDragging(false)
+  }
+
+  const onCoverTouchStart = (e) => {
+    setCoverIsDragging(true)
+    setCoverDragStart({ x: e.touches[0].clientX, y: e.touches[0].clientY })
+  }
+
+  const onCoverTouchMove = (e) => {
+    if (!coverIsDragging) return
+    const dx = e.touches[0].clientX - coverDragStart.x
+    const dy = e.touches[0].clientY - coverDragStart.y
+    setCoverDragStart({ x: e.touches[0].clientX, y: e.touches[0].clientY })
+    setCoverCropPos(prev => clampCoverPos({ x: prev.x + dx, y: prev.y + dy }, coverCropScale))
+  }
+
+  const onCoverTouchEnd = () => {
+    setCoverIsDragging(false)
+  }
+
+  const createCroppedCoverBlob = async () => {
+    if (!coverImgRef.current) return null
+    const img = coverImgRef.current
+    const vw = coverViewport.w || 900
+    const vh = coverViewport.h || Math.round(vw * 0.3)
+
+    const displayedHeight = vh
+    const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
+
+    const scale = coverCropScale
+
+    const sx = Math.max(0, ((0 - coverCropPos.x) / (displayedWidth * scale)) * img.naturalWidth)
+    const sy = Math.max(0, ((0 - coverCropPos.y) / (displayedHeight * scale)) * img.naturalHeight)
+    const sWidth = Math.min(img.naturalWidth, (vw / (displayedWidth * scale)) * img.naturalWidth)
+    const sHeight = Math.min(img.naturalHeight, (vh / (displayedHeight * scale)) * img.naturalHeight)
+
+    const canvasW = 1200
+    const canvasH = 360
+    const canvas = document.createElement('canvas')
+    canvas.width = canvasW
+    canvas.height = canvasH
+    const ctx = canvas.getContext('2d')
+
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, canvasW, canvasH)
+    try {
+      ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, canvasW, canvasH)
+    } catch (err) {
+      console.error('Error drawing cropped cover image', err)
+      return null
+    }
+
+    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+  }
+
+  const generateCoverPreview = async () => {
+    const blob = await createCroppedCoverBlob()
+    if (!blob) {
+      setCoverCroppedPreviewUrl(null)
+      return
+    }
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setCoverCroppedPreviewUrl(reader.result)
+    }
+    reader.readAsDataURL(blob)
+  }
+
+  const clampCoverPos = (pos, scale) => {
+    const vw = coverViewport.w || 900
+    const vh = coverViewport.h || Math.round(vw * 0.3)
+    if (!coverImgNatural.width || !coverImgNatural.height) return pos
+
+    const displayedHeight = vh
+    const displayedWidth = (coverImgNatural.width / coverImgNatural.height) * displayedHeight
+    const visibleW = displayedWidth * scale
+    const visibleH = displayedHeight * scale
+
+    const minX = Math.min(0, vw - visibleW)
+    const maxX = 0
+    const minY = Math.min(0, vh - visibleH)
+    const maxY = 0
+
+    const x = Math.round(Math.max(minX, Math.min(maxX, pos.x)))
+    const y = Math.round(Math.max(minY, Math.min(maxY, pos.y)))
+    return { x, y }
+  }
+
+  const onCoverZoomChange = (value) => {
+    const raw = parseFloat(value)
+    const s = Math.max(raw, coverMinScale || 1)
+    setCoverCropScale(s)
+    setCoverCropPos(prev => clampCoverPos(prev, s))
+  }
+
+  const resetCoverCrop = () => {
+    const vw = coverViewport.w || 900
+    const vh = coverViewport.h || Math.round(vw * 0.3)
+    const minS = coverMinScale || 1
+    const s = Math.max(1, minS)
+    setCoverCropScale(s)
+    if (!coverImgNatural.width || !coverImgNatural.height) {
+      setCoverCropPos({ x: 0, y: 0 })
+      return
+    }
+    const displayedHeight = vh
+    const displayedWidth = (coverImgNatural.width / coverImgNatural.height) * displayedHeight
+    const visibleW = displayedWidth * s
+    const visibleH = displayedHeight * s
+    const initX = Math.round((vw - visibleW) / 2)
+    const initY = Math.round((vh - visibleH) / 2)
+    setCoverCropPos({ x: initX, y: initY })
+  }
+
+  const handleUploadCoverPhoto = async () => {
+    if (!selectedCoverFile) return
+
+    setUploadingCoverPhoto(true)
+    try {
+      const token = localStorage.getItem('clientToken')
+
+      const blob = await createCroppedCoverBlob()
+      if (!blob) {
+        alert('❌ Failed to prepare cropped cover image')
+        setUploadingCoverPhoto(false)
+        return
+      }
+
+      const file = new File([blob], selectedCoverFile.name || 'cover.jpg', { type: blob.type })
+      const formData = new FormData()
+      formData.append('coverPhoto', file)
+
+      const response = await fetch(`${API_URL}/clients/upload-cover-photo`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setClient(data.client)
+        setShowCoverPhotoUploadModal(false)
+        setSelectedCoverFile(null)
+        setCoverPreviewUrl(null)
+        setCoverCroppedPreviewUrl(null)
+        alert('✅ Cover photo updated successfully!')
+      } else {
+        const errorData = await response.json()
+        alert(`❌ ${errorData.error || 'Failed to upload cover photo'}`)
+      }
+    } catch (error) {
+      console.error('Error uploading cover photo:', error)
+      alert('❌ Error uploading cover photo')
+    } finally {
+      setUploadingCoverPhoto(false)
+    }
+  }
+
+  const cancelCoverPhotoUpload = () => {
+    setShowCoverPhotoUploadModal(false)
+    setSelectedCoverFile(null)
+    setCoverPreviewUrl(null)
+    setCoverCroppedPreviewUrl(null)
+  }
+
   const handleEditProfile = () => {
     setShowEditProfileModal(true)
     setIsSettingsOpen(false)
@@ -371,30 +616,30 @@ const ClintProfile = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#e5e5e5] text-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{borderColor: '#1e40af'}}></div>
+          <p className="mt-4 text-gray-400">Loading...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#e5e5e5] text-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="shadow-sm border-b" style={{backgroundColor: '#e6e6e6', borderColor:'#d9d9d9'}}>
         <div className="w-full sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-8">
           {/* Left: App Name */}
           <div className="flex items-center gap-3">
-            <div className="bg-blue-600 rounded-lg p-2">
+            <div className="rounded-lg p-2" style={{backgroundColor: '#1e40af'}}>
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-800">YaarCircle</h1>
-              <p className="text-xs text-gray-500">Client Profile</p>
+              <h1 className="text-xl font-bold  text-gray-900">YaarCircle</h1>
+              <p className="text-xs text-gray-600">Client Profile</p>
             </div>
           </div>
 
@@ -409,7 +654,7 @@ const ClintProfile = () => {
               <input
                 type="text"
                 placeholder="Search workers by name, skills, or location..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg bg[#e6e6e6] text-gray-200 placeholder-gray-400 focus:ring-2 focus:ring-[#1e40af] focus:border-transparent transition-all"
               />
             </div>
           </div>
@@ -419,7 +664,7 @@ const ClintProfile = () => {
           <div className="hidden md:flex items-center gap-6">
             <button 
               onClick={() => navigate('/client/dashboard')}
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-[#cfd3de] rounded-lg transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -434,11 +679,11 @@ const ClintProfile = () => {
               <span className="font-medium">Notifications</span>
               {/* Notification Badge */}
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            {/* </button> */} */
+            {/* </button> */} 
 
             <button 
               onClick={() => navigate('/client/pricing')}
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-[#cfd3de] rounded-lg transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -448,7 +693,7 @@ const ClintProfile = () => {
             
             <button 
               onClick={() => setIsSettingsOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-[#cfd3de] rounded-lg transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -461,12 +706,12 @@ const ClintProfile = () => {
           {/* Right: Profile */}
           <div className="flex items-center gap-4">
             <div className="text-right hidden md:block">
-              <p className="text-sm font-semibold text-gray-800">{client?.name}</p>
-              <p className="text-xs text-gray-500">{client?.email}</p>
+              <p className="text-sm font-semibold text-gray-900">{client?.name}</p>
+              <p className="text-xs text-gray-600">{client?.email}</p>
             </div>
             
             <div className="relative group">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow border-2 border-blue-500 overflow-hidden">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow border-2 overflow-hidden" style={{background: 'linear-gradient(135deg, #1e40af, #16357f)', borderColor:'#16357f'}}>
                 {client?.profilePicture ? (
                   <img 
                     src={client.profilePicture} 
@@ -510,14 +755,38 @@ const ClintProfile = () => {
         </button>
 
         {/* Profile Header Card */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-32"></div>
+        <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6 border border-gray-200">
+          {/* Cover Photo */}
+          <div 
+            className="h-32 bg-cover bg-center bg-no-repeat relative group cursor-pointer"
+            style={client?.coverPhoto ? { backgroundImage: `url(${client.coverPhoto})` } : {}}
+            onClick={() => client?.coverPhoto && setShowCoverPreview(true)}
+          >
+            <label 
+              htmlFor="client-cover-photo-upload"
+              onClick={(e) => e.stopPropagation()}
+              className="absolute bottom-2 right-2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full p-2 shadow-lg cursor-pointer transition-all opacity-0 group-hover:opacity-100"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <input
+                id="client-cover-photo-upload"
+                type="file"
+                accept="image/*"
+                onClick={(e) => e.stopPropagation()}
+                onChange={handleCoverPhotoSelect}
+                className="hidden"
+              />
+            </label>
+          </div>
           <div className="px-8 pb-8">
-            <div className="flex items-end justify-between -mt-16">
+            <div className="relative z-10 flex items-end justify-between -mt-16">
               <div className="flex items-end gap-6">
                 {/* Profile Picture with Upload Button */}
                 <div className="relative group">
-                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-5xl shadow-xl border-4 border-white overflow-hidden">
+                  <div className="w-32 h-32 rounded-full flex items-center justify-center text-white font-bold text-5xl shadow-xl border-4 border-white overflow-hidden" style={{background: 'linear-gradient(135deg, #1e40af, #16357f)'}}>
                       {client?.profilePicture ? (
                         <img 
                           src={client.profilePicture} 
@@ -556,16 +825,16 @@ const ClintProfile = () => {
                     />
                   </label>
                 </div>
-                <div className="mb-4">
-                  <h2 className="text-3xl font-bold text-gray-800">{client?.name}</h2>
+                  <div className="mb-4">
+                  <h2 className="text-3xl font-bold  text-gray-900">{client?.name}</h2>
                   {client?.companyName && (
-                    <p className="text-lg text-gray-600">{client.companyName}</p>
+                    <p className="text-lg  text-gray-600">{client.companyName}</p>
                   )}
                   <div className="flex items-center gap-2 mt-2">
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${client?.otpVerified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                       {client?.otpVerified ? '✓ Verified' : 'Not Verified'}
                     </span>
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
                       {client?.role}
                     </span>
                   </div>
@@ -573,7 +842,8 @@ const ClintProfile = () => {
               </div>
               <button 
                 onClick={handleLogout}
-                className="mb-4 px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                className="mb-4 px-6 py-2 text-white rounded-lg font-semibold transition-colors"
+                style={{backgroundColor: '#1e40af'}}
               >
                 Logout
               </button>
@@ -582,7 +852,7 @@ const ClintProfile = () => {
         </div>
 
         {/* Quick Actions Section - HIGHLIGHTED */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-xl p-8 mb-6 border-4 border-blue-400">
+        <div className="rounded-lg shadow-xl p-8 mb-6 border-2" style={{background: 'linear-gradient(90deg,#e5e5e5,#e5e5e5)', borderColor:'#e5e5e5'}}>
           <div className="flex items-center gap-3 mb-6">
             <div className="bg-white rounded-lg p-2">
               <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -597,16 +867,16 @@ const ClintProfile = () => {
           <div className="grid md:grid-cols-3 gap-6">
             <div 
               onClick={() => navigate('/client/post-job')}
-              className="bg-white rounded-lg p-6 hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105 border-2 border-transparent hover:border-yellow-400"
+              className="bg-white rounded-lg p-6 border border-gray-200 hover:shadow-lg transition-all cursor-pointer transform hover:scale-105"
             >
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-full p-4 w-16 h-16 flex items-center justify-center mb-4 shadow-lg">
+              <div className="rounded-full p-4 w-16 h-16 flex items-center justify-center mb-4 shadow-lg" style={{background:'#16357f'}}>
                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">Post a Job</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Post a Job</h3>
               <p className="text-gray-600">Create new job postings to find workers</p>
-              <div className="mt-4 flex items-center text-blue-600 font-semibold">
+              <div className="mt-4 flex items-center text-[#1e40af] font-semibold">
                 <span>Get Started</span>
                 <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -616,16 +886,16 @@ const ClintProfile = () => {
 
             <div 
               onClick={() => navigate('/client/my-jobs')}
-              className="bg-white rounded-lg p-6 hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105 border-2 border-transparent hover:border-yellow-400"
+              className="bg-white rounded-lg p-6 border border-gray-200 hover:shadow-lg transition-all cursor-pointer transform hover:scale-105"
             >
-              <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-full p-4 w-16 h-16 flex items-center justify-center mb-4 shadow-lg">
+              <div className="rounded-full p-4 w-16 h-16 flex items-center justify-center mb-4 shadow-lg" style={{background:'#2a7a5f'}}>
                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">My Jobs</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">My Jobs</h3>
               <p className="text-gray-600">View and manage your active job postings</p>
-              <div className="mt-4 flex items-center text-green-600 font-semibold">
+              <div className="mt-4 flex items-center text-[#1e40af] font-semibold">
                 <span>View Jobs</span>
                 <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -635,16 +905,16 @@ const ClintProfile = () => {
 
             <div 
               onClick={() => navigate('/client/pricing')}
-              className="bg-white rounded-lg p-6 hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105 border-2 border-transparent hover:border-yellow-400"
+              className="bg-white rounded-lg p-6 border border-gray-200 hover:shadow-lg transition-all cursor-pointer transform hover:scale-105"
             >
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-full p-4 w-16 h-16 flex items-center justify-center mb-4 shadow-lg">
+              <div className="rounded-full p-4 w-16 h-16 flex items-center justify-center mb-4 shadow-lg" style={{background:'#6b46c1'}}>
                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">Pricing</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Pricing</h3>
               <p className="text-gray-600">View subscription plans</p>
-              <div className="mt-4 flex items-center text-purple-600 font-semibold">
+              <div className="mt-4 flex items-center text-[#1e40af] font-semibold">
                 <span>View Plans</span>
                 <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -657,76 +927,76 @@ const ClintProfile = () => {
         {/* Profile Details Grid */}
         <div className="grid md:grid-cols-2 gap-6">
           {/* Personal Information */}
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
             <div className="flex items-center gap-3 mb-6">
-              <div className="bg-blue-100 rounded-lg p-2">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-[ rounded-lg p-2">
+                <svg className="w-6 h-6 text-[#1e40af]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-800">Personal Information</h3>
+              <h3 className="text-xl font-bold text-gray-900">Personal Information</h3>
             </div>
             
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-gray-500 font-medium">Full Name</p>
-                <p className="text-gray-800 font-semibold text-lg">{client?.name}</p>
+                <p className="text-gray-700 font-semibold text-lg">{client?.name}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500 font-medium">Email Address</p>
-                <p className="text-gray-800">{client?.email}</p>
+                <p className="text-gray-700">{client?.email}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500 font-medium">Phone Number</p>
-                <p className="text-gray-800">{client?.phone}</p>
+                <p className="text-gray-700">{client?.phone}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500 font-medium">Role</p>
-                <p className="text-gray-800 capitalize">{client?.role}</p>
+                <p className="text-gray-700 capitalize">{client?.role}</p>
               </div>
             </div>
           </div>
 
           {/* Company Information */}
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
             <div className="flex items-center gap-3 mb-6">
-              <div className="bg-purple-100 rounded-lg p-2">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg rounded-lg p-2">
+                <svg className="w-6 h-6 text-[#1e40af]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-800">Company Information</h3>
+              <h3 className="text-xl font-bold text-gray-900">Company Information</h3>
             </div>
             
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-gray-500 font-medium">Company Name</p>
-                <p className="text-gray-800 font-semibold text-lg">{client?.companyName || 'Not Provided'}</p>
+                <p className="text-gray-700 font-semibold text-lg">{client?.companyName || 'Not Provided'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500 font-medium">Industry</p>
-                <p className="text-gray-800">{client?.industry || 'Not Specified'}</p>
+                <p className="text-gray-700">{client?.industry || 'Not Specified'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500 font-medium">Company Size</p>
-                <p className="text-gray-800">{client?.companySize || 'Not Specified'}</p>
+                <p className="text-gray-700">{client?.companySize || 'Not Specified'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500 font-medium">Location</p>
-                <p className="text-gray-800">{client?.location || 'Not Specified'}</p>
+                <p className="text-gray-700">{client?.location || 'Not Specified'}</p>
               </div>
             </div>
           </div>
 
           {/* Account Status */}
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
             <div className="flex items-center gap-3 mb-6">
-              <div className="bg-green-100 rounded-lg p-2">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg- rounded-lg p-2">
+                <svg className="w-6 h-6 text-[#1e40af]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-800">Account Status</h3>
+              <h3 className="text-xl font-bold text-gray-900">Account Status</h3>
             </div>
             
             <div className="space-y-4">
@@ -752,11 +1022,11 @@ const ClintProfile = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-500 font-medium">Account Created</p>
-                <p className="text-gray-800">{client?.createdAt ? new Date(client.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</p>
+                <p className="text-gray-700">{client?.createdAt ? new Date(client.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500 font-medium">Last Updated</p>
-                <p className="text-gray-800">{client?.updatedAt ? new Date(client.updatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</p>
+                <p className="text-gray-700">{client?.updatedAt ? new Date(client.updatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500 font-medium">Account ID</p>
@@ -766,30 +1036,30 @@ const ClintProfile = () => {
           </div>
 
           {/* Subscription Details */}
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
             <div className="flex items-center gap-3 mb-6">
-              <div className="bg-yellow-100 rounded-lg p-2">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-gra0 rounded-lg p-2">
+                <svg className="w-6 h-6 text-[#1e40af]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-800">Subscription</h3>
+              <h3 className="text-xl font-bold text-gray-900">Subscription</h3>
             </div>
             
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-gray-500 font-medium">Current Plan</p>
-                <p className="text-gray-800 font-semibold text-lg">{client?.subscription?.plan || 'Free'}</p>
+                <p className="text-gray-700 font-semibold text-lg">{client?.subscription?.plan || 'Free'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500 font-medium">Plan Status</p>
-                <p className="text-gray-800">{client?.subscription?.status || 'Active'}</p>
+                <p className="text-gray-700">{client?.subscription?.status || 'Active'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500 font-medium">Jobs Posted</p>
-                <p className="text-gray-800">{client?.jobsPosted || 0} / {client?.subscription?.jobLimit || '∞'}</p>
+                <p className="text-gray-700">{client?.jobsPosted || 0} / {client?.subscription?.jobLimit || '∞'}</p>
               </div>
-              <button className="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+              <button className="w-full mt-4 px-4 py-2 text-white rounded-lg font-semibold" style={{backgroundColor:'#1e40af'}}>
                 Upgrade Plan
               </button>
             </div>
@@ -797,12 +1067,13 @@ const ClintProfile = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-6 bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">Account Actions</h3>
+        {/* <div className="mt-6 bg-white rounded-lg shadow-md p-6 border border-gray-200">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">Account Actions</h3>
           <div className="flex flex-wrap gap-4">
             <button 
               onClick={handleEditProfile}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              className="px-6 py-2 text-white rounded-lg font-semibold"
+              style={{backgroundColor:'#1e40af'}}
             >
               Edit Profile
             </button>
@@ -819,7 +1090,7 @@ const ClintProfile = () => {
               Notification Preferences
             </button>
           </div>
-        </div>
+        </div> */}
       </main>
 
       {/* Settings Side Menu */}
@@ -956,6 +1227,23 @@ const ClintProfile = () => {
         </div>
       )}
 
+      {/* Cover Photo Full Preview Modal */}
+      {showCoverPreview && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black opacity-70" onClick={() => setShowCoverPreview(false)}></div>
+          <div className="relative max-w-5xl w-full max-h-full overflow-auto p-4 z-70">
+            <button onClick={() => setShowCoverPreview(false)} className="absolute top-4 right-4 bg-white rounded-full p-2 shadow-lg z-80">
+              <svg className="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="bg-white rounded-lg overflow-hidden p-4 flex items-center justify-center">
+              <img src={client?.coverPhoto || '/default-cover.png'} alt="Cover Full" className="max-w-full max-h-[80vh] object-contain" />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Photo Upload Modal */}
       {showPhotoUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1030,6 +1318,108 @@ const ClintProfile = () => {
                   className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {uploadingPhoto ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      Upload
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cover Photo Upload Modal */}
+      {showCoverPhotoUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 rounded-t-2xl">
+              <h2 className="text-2xl font-bold">Upload Cover Photo</h2>
+              <p className="text-gray-100 text-sm mt-1">Choose a banner image for your profile</p>
+            </div>
+
+            <div className="p-6">
+              {coverPreviewUrl && (
+                <div className="mb-6">
+                  <div ref={coverContainerRef} className="w-full h-48 rounded-lg overflow-hidden border-4 border-gray-300 shadow-lg relative">
+                    <div
+                      className="absolute top-0 left-0"
+                      style={{ transform: `translate(${coverCropPos.x}px, ${coverCropPos.y}px) scale(${coverCropScale})`, transformOrigin: 'top left', cursor: coverIsDragging ? 'grabbing' : 'grab' }}
+                      onMouseDown={onCoverMouseDown}
+                      onMouseMove={onCoverMouseMove}
+                      onMouseUp={onCoverMouseUp}
+                      onMouseLeave={onCoverMouseUp}
+                      onTouchStart={onCoverTouchStart}
+                      onTouchMove={onCoverTouchMove}
+                      onTouchEnd={onCoverTouchEnd}
+                    >
+                      <img
+                        ref={coverImgRef}
+                        src={coverPreviewUrl}
+                        alt="Cover Preview"
+                        onLoad={onCoverPreviewLoad}
+                        style={{ height: `${coverViewport.h || 144}px`, width: 'auto', display: 'block', userSelect: 'none', pointerEvents: 'none' }}
+                      />
+                    </div>
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                      <div className="w-full h-full rounded-lg border-0"></div>
+                    </div>
+                  </div>
+                  <div className="w-full mt-3 flex items-center gap-3">
+                    <label className="text-sm text-gray-600">Zoom</label>
+                    <input type="range" min={coverMinScale || 1} max={Math.max(3, coverMinScale || 1)} step="0.01" value={coverCropScale} onChange={(e) => onCoverZoomChange(e.target.value)} className="flex-1" />
+                    <button onClick={resetCoverCrop} className="px-3 py-1 bg-gray-200 rounded">Reset</button>
+                    <button onClick={generateCoverPreview} className="px-3 py-1 bg-blue-800 text-white rounded">Preview</button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Drag to reposition the banner; use zoom to scale.</p>
+
+                  {coverCroppedPreviewUrl && (
+                    <div className="mt-4">
+                      <p className="text-xs text-gray-500 mb-2">Cropped Preview</p>
+                      <div className="w-full max-w-xl border rounded overflow-hidden shadow-sm">
+                        <img src={coverCroppedPreviewUrl} alt="Cropped preview" className="w-full h-auto object-cover" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedCoverFile && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold">File:</span> {selectedCoverFile.name}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold">Size:</span> {(selectedCoverFile.size / 1024).toFixed(2)} KB
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-4">
+                <button
+                  onClick={cancelCoverPhotoUpload}
+                  disabled={uploadingCoverPhoto}
+                  className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUploadCoverPhoto}
+                  disabled={uploadingCoverPhoto}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {uploadingCoverPhoto ? (
                     <>
                       <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>

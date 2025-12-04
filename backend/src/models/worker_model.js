@@ -9,6 +9,9 @@ const workerSchema = new mongoose.Schema({
   workType: { type: String, required: true },
   yearsOfExperience: { type: Number, default: 0 },
   location: String,
+  village: { type: String },
+  district: { type: String },
+  state: { type: String },
   // 📍 Geolocation for nearby search (30km radius)
   coordinates: {
     latitude: { type: Number, default: null },

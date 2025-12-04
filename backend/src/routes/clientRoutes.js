@@ -36,6 +36,7 @@ import {
   unlockWorkerProfile,
   getUnlockedWorkers,
   uploadClientProfilePicture,
+  uploadClientCoverPhoto,
   getImageKitAuthParams
 } from "../controllers/clientController.js";
 import { clint_auth } from "../middlewares/clint_middlewares/clint_auth.js";
@@ -60,6 +61,8 @@ clientRouter.post('/update-location', clint_auth, updateClientLocation);
 
 // 📸 Profile Picture Upload (auth required)
 clientRouter.post('/upload-profile-picture', clint_auth, upload.single('profilePicture'), uploadClientProfilePicture);
+// 🖼️ Cover Photo Upload (auth required)
+clientRouter.post('/upload-cover-photo', clint_auth, upload.single('coverPhoto'), uploadClientCoverPhoto);
 clientRouter.get('/imagekit-auth', getImageKitAuthParams);
 
 // Worker Search routes (public)

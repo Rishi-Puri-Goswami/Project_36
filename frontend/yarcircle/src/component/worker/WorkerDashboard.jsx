@@ -574,19 +574,19 @@ const WorkerDashboard = () => {
   const workTypes = ['Plumber', 'Electrician', 'Carpenter', 'Painter', 'Mason', 'Welder', 'Driver', 'Helper', 'Cook', 'Cleaner', 'Other']
 
   return (
-    <div className="min-h-screen  rubik-regular bg-neutral-200">
+    <div className="min-h-screen rubik-regular bg-neutral-200 overflow-x-hidden">
       {/* Header */}
       <header className=" backdrop-blur-[8px] shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           {/* Left: App Name */}
-          <div className="flex items-center gap-3 ">
+            <div className="flex items-center gap-3 ">
             <div className="bg-black rounded-lg p-2">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
-            <div>
-              <h1 className="text-xl  font-bold text-gray-800">YaarCircle</h1>
+              <div>
+              <h1 className="text-sm sm:text-base font-bold text-gray-800">YaarCircle</h1>
               <p className="text-xs text-gray-500">Worker Dashboard</p>
             </div>
           </div>
@@ -656,30 +656,20 @@ const WorkerDashboard = () => {
             {/* Home Button - Hidden on mobile */}
             <button 
               onClick={() => navigate('/worker/dashboard')}
-              className="hidden md:flex items-center gap-2 px-4 py-2 text-gray-900 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 text-gray-900 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
               title="Home"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
-              <span className="font-medium hidden lg:inline">Home</span>
+              <span className="font-medium hidden lg:inline text-sm">Home</span>
             </button>
 
-            {/* Notifications */}
-            <button 
-              className="relative p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
-              title="Notifications"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              {/* Notification Badge */}
-              <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
-            </button>
+            {/* Notifications removed for a cleaner navbar */}
 
             <div className="flex items-center gap-4">
               <div className="text-right hidden md:block">
-                <p className="text-sm font-semibold text-gray-800">{worker?.name}</p>
+                <p className="text-xs font-semibold text-gray-800">{worker?.name}</p>
                 <p className="text-xs text-gray-500">{worker?.workType}</p>
               </div>
               
@@ -814,13 +804,13 @@ const WorkerDashboard = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Welcome Section */}
-        <div className="bg-blue-800 rounded-lg shadow-md p-6 mb-6 text-white">
-          <h2 className="text-2xl font-bold mb-1">Welcome back, {worker?.name}! 👋</h2>
-          <p className="text-green-100">Ready to find your next opportunity?</p>
+        <div className="bg-blue-800 rounded-lg shadow-md p-4 sm:p-6 mb-6 text-white">
+          <h2 className="text-lg sm:text-2xl font-bold mb-1">Welcome back, {worker?.name}! 👋</h2>
+          <p className="text-sm sm:text-base text-green-100">Ready to find your next opportunity?</p>
         </div>
 
         {/* Mobile Search Bar */}
-        <div className="md:hidden mb-4">
+          <div className="md:hidden mb-4">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -848,10 +838,10 @@ const WorkerDashboard = () => {
         </div>
 
         {/* Mobile Filter Button */}
-        <div className="md:hidden mb-4">
+          <div className="md:hidden mb-4">
           <button
             onClick={() => setShowMobileFilters(true)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-800 hover:bg-blue-900 text-white rounded-lg transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-3 bg-blue-800 hover:bg-blue-900 text-white rounded-lg transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -974,14 +964,14 @@ const WorkerDashboard = () => {
 
           {/* Center - Job Listings */}
           <div className="flex-1">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-800">
+            <div className="mb-4 flex flex-col sm:flex-row items-center sm:justify-between gap-2">
+              <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 text-center sm:text-left">
                 {filteredJobs.length} Job{filteredJobs.length !== 1 ? 's' : ''} Available
               </h2>
               <select 
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800"
+                className="mt-2 sm:mt-0 w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-800"
               >
                 <option value="latest">Sort by: Latest</option>
                 <option value="salary-high">Sort by: Salary (High to Low)</option>
@@ -990,9 +980,9 @@ const WorkerDashboard = () => {
             </div>
 
             {/* Job Cards */}
-            <div className="space-y-4">
+            <div className="flex flex-col items-center gap-4 px-2 sm:px-0">
               {loading ? (
-                <div className="text-center py-12">
+                <div className="text-center ">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
                   <p className="mt-4 text-gray-600">Loading jobs...</p>
                 </div>
@@ -1006,10 +996,10 @@ const WorkerDashboard = () => {
                 </div>
               ) : (
                 filteredJobs.map((job) => (
-                  <div key={job._id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6 border border-gray-100">
+                  <div key={job._id} className="w-full max-w-sm sm:max-w-md md:max-w-3xl lg:max-w-4xl bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-4 sm:p-6 lg:p-8 border border-gray-100 mx-auto">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-800 mb-1">{job.workType}</h3>
+                        <h3 className="text-base sm:text-lg font-bold text-gray-800 mb-1">{job.workType}</h3>
                         <p className="text-sm text-gray-500 mb-2">Posted by: {job.clientId?.companyName || job.clientId?.name || 'Company'}</p>
                       </div>
                       <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">
@@ -1054,14 +1044,14 @@ const WorkerDashboard = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleViewJobDetails(job)}
-                          className="px-4 py-2 text-sm font-semibold text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                          className="px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm font-semibold text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
                         >
                           View More
                         </button>
                         <button 
                           onClick={() => handleApplyToJob(job._id)}
                           disabled={applyingJobId === job._id || job.workerApplications?.includes(worker?._id)}
-                          className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                          className={`px-2 py-1 text-xs sm:px-3 sm:py-1.5 sm:text-sm font-semibold rounded-lg transition-colors ${
                             job.workerApplications?.includes(worker?._id)
                               ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
                               : applyingJobId === job._id
@@ -1354,7 +1344,7 @@ const WorkerDashboard = () => {
               <div className="flex gap-3 pt-4 border-t">
                 <button
                   onClick={closeJobDetailsModal}
-                  className="flex-1 px-6 py-3 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  className="flex-1 px-4 py-2 sm:px-6 sm:py-3 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                 >
                   Close
                 </button>
@@ -1364,7 +1354,7 @@ const WorkerDashboard = () => {
                     closeJobDetailsModal()
                   }}
                   disabled={selectedJob.workerApplications?.includes(worker?._id)}
-                  className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-colors ${
+                  className={`flex-1 px-4 py-2 sm:px-6 sm:py-3 rounded-lg font-semibold transition-colors ${
                     selectedJob.workerApplications?.includes(worker?._id)
                       ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
                       : 'bg-black text-white hover:bg-gray-900'
