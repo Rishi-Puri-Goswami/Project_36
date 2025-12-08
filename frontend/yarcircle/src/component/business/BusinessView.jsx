@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Star, MapPin, Clock, Phone, Mail, User, Eye } from 'lucide-react';
+import { Star, MapPin, Clock, Phone, Mail, User, Eye, Tag } from 'lucide-react';
 import { getBusinessToken } from '../../utils/businessAuth';
 import { API_URL } from '../../config/api';
 import { useBusiness } from '../../context/BusinessContext';
@@ -234,7 +234,10 @@ const BusinessView = () => {
           <div className="mt-6 space-y-4">
             {/* Address */}
             <div className="border-t pt-4">
-              <h3 className="font-semibold text-gray-800 mb-2">📍 Address</h3>
+              <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-gray-600" />
+                Address
+              </h3>
               <p className="text-gray-600">
                 {business.shopAddress}
                 {business.landmark && `, ${business.landmark}`}
@@ -246,7 +249,10 @@ const BusinessView = () => {
 
             {/* Timing */}
             <div className="border-t pt-4">
-              <h3 className="font-semibold text-gray-800 mb-2">🕐 Business Hours</h3>
+              <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-gray-600" />
+                Business Hours
+              </h3>
               <p className="text-gray-600">
                 {business.openingTime} - {business.closingTime}
               </p>
@@ -261,7 +267,10 @@ const BusinessView = () => {
 
             {/* Contact */}
             <div className="border-t pt-4">
-              <h3 className="font-semibold text-gray-800 mb-2">📞 Contact</h3>
+              <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                <Phone className="w-4 h-4 text-gray-600" />
+                Contact
+              </h3>
               <p className="text-gray-600">Phone: {business.contactPhone}</p>
               {business.contactEmail && (
                 <p className="text-gray-600">Email: {business.contactEmail}</p>
@@ -274,7 +283,10 @@ const BusinessView = () => {
             {/* Owner */}
             {business.owner && (
               <div className="border-t pt-4">
-                <h3 className="font-semibold text-gray-800 mb-2">👤 Owner</h3>
+                <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                  <User className="w-4 h-4 text-gray-600" />
+                  Owner
+                </h3>
                 <p className="text-gray-600">{business.owner.fullName}</p>
               </div>
             )}
@@ -282,15 +294,18 @@ const BusinessView = () => {
             {/* Tags */}
             {business.tags && business.tags.length > 0 && (
               <div className="border-t pt-4">
-                <h3 className="font-semibold text-gray-800 mb-2">🏷️ Tags</h3>
-                <div className="flex flex-wrap gap-2">
-                  {business.tags.map((tag, idx) => (
-                    <span key={idx} className="bg-purple-50 text-purple-600 text-sm px-3 py-1 rounded-full">
-                      {tag}
-                    </span>
-                  ))}
+                  <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-gray-600" />
+                    Tags
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {business.tags.map((tag, idx) => (
+                      <span key={idx} className="bg-purple-50 text-purple-600 text-sm px-3 py-1 rounded-full">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
             )}
 
             {/* Stats */}
