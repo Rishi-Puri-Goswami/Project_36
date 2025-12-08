@@ -6,6 +6,7 @@ import connectDB from "./config/db.js";
 import workerRoutes from "./routes/workerRoutes.js";
 import clientRoutes from "./routes/clientRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import businessRoutes from "./routes/businessRoutes.js";
 import fs from "fs";
 import path from "path";
 
@@ -34,6 +35,7 @@ connectDB();
 app.use('/api/workers', workerRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/business', businessRoutes);
 
 app.get('/', (req, res) => res.send('API is running'));
 

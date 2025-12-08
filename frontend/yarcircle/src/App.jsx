@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { CreditProvider } from './context/CreditContext'
 import { AdminProvider } from './context/AdminContext'
+import { BusinessProvider } from './context/BusinessContext'
 import LandingPage from './component/landingPage/LandingPage'
 import ClintPage from './component/clint/ClintPage'
 import ClintLogin from './component/clint/ClintLogin'
@@ -29,6 +30,15 @@ import Terms from './component/policies/Terms'
 import AdminLogin from './component/admin/AdminLogin'
 import AdminDashboard from './component/admin/AdminDashboard'
 import AdminProtectedRoute from './component/admin/AdminProtectedRoute'
+// Business Components
+import BusinessRegister from './component/business/BusinessRegister'
+import BusinessLogin from './component/business/BusinessLogin'
+import BusinessDashboard from './component/business/BusinessDashboard'
+import BusinessProfile from './component/business/BusinessProfile'
+import AddBusiness from './component/business/AddBusiness'
+import MyListings from './component/business/MyListings'
+import BusinessView from './component/business/BusinessView'
+import EditBusiness from './component/business/EditBusiness'
 import "./App.css";
 const App = () => {
   // Get admin secret path from environment variable
@@ -38,48 +48,60 @@ const App = () => {
     <Router>
       <CreditProvider>
         <AdminProvider>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} />
-            
-            {/* Client Routes */}
-            {/* <Route path="/client" element={<ClintPage />} /> */}
-            <Route path="/client/login" element={<ClintLogin />} />
-            <Route path="/client/register" element={<ClintRegister />} />
-            <Route path="/client/pricing" element={<PricingPage />} />
-            <Route path="/client/dashboard" element={<ClintDashboard />} />
-            <Route path="/client/profile" element={<ClintProfile />} />
-            <Route path="/client/post-job" element={<PostJob />} />
-            <Route path="/client/my-jobs" element={<MyJobs />} />
-            <Route path="/client/jobs/:jobId" element={<JobDetails />} />
-            <Route path="/client/edit-job/:jobId" element={<EditJob />} />
-            <Route path="/client/worker-profile/:workerId" element={<WorkerProfileView />} />
-            <Route path="/client/worker-posts" element={<WorkerPostSearch />} />
-            
-            {/* Worker Routes */}
-            <Route path="/worker" element={<WorkerPage />} />
-            <Route path="/worker/login" element={<WorkerLogin />} />
-            <Route path="/worker/register" element={<WorkerRegister />} />
-            <Route path="/worker/dashboard" element={<WorkerDashboard />} />
-            <Route path="/worker/profile" element={<WorkerProfile />} />
-            <Route path="/worker/settings" element={<WorkerSettings />} />
-            
-            {/* Policy Routes */}
-            <Route path="/terms/cancellation-refund" element={<CancellationRefund />} />
-            <Route path="/terms/contact-us" element={<ContactUs />} />
-            <Route path="/terms/privacy" element={<Privacy />} />
-            <Route path="/terms/shipping" element={<Shipping />} />
-            <Route path="/terms/terms" element={<Terms />} />
+          <BusinessProvider>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<LandingPage />} />
+              
+              {/* Client Routes */}
+              {/* <Route path="/client" element={<ClintPage />} /> */}
+              <Route path="/client/login" element={<ClintLogin />} />
+              <Route path="/client/register" element={<ClintRegister />} />
+              <Route path="/client/pricing" element={<PricingPage />} />
+              <Route path="/client/dashboard" element={<ClintDashboard />} />
+              <Route path="/client/profile" element={<ClintProfile />} />
+              <Route path="/client/post-job" element={<PostJob />} />
+              <Route path="/client/my-jobs" element={<MyJobs />} />
+              <Route path="/client/jobs/:jobId" element={<JobDetails />} />
+              <Route path="/client/edit-job/:jobId" element={<EditJob />} />
+              <Route path="/client/worker-profile/:workerId" element={<WorkerProfileView />} />
+              <Route path="/client/worker-posts" element={<WorkerPostSearch />} />
+              
+              {/* Worker Routes */}
+              <Route path="/worker" element={<WorkerPage />} />
+              <Route path="/worker/login" element={<WorkerLogin />} />
+              <Route path="/worker/register" element={<WorkerRegister />} />
+              <Route path="/worker/dashboard" element={<WorkerDashboard />} />
+              <Route path="/worker/profile" element={<WorkerProfile />} />
+              <Route path="/worker/settings" element={<WorkerSettings />} />
 
-            {/* Admin Routes with Secret URL */}
-            <Route path={`/admin/${adminSecretPath}/login`} element={<AdminLogin />} />
-            
-            {/* Protected Admin Routes */}
-            <Route path={`/admin/${adminSecretPath}`} element={<AdminProtectedRoute />}>
-              <Route path="dashboard" element={<AdminDashboard />} />
-              {/* More admin routes will be added here */}
-            </Route>
-          </Routes>
+              {/* Business Routes */}
+              <Route path="/business/register" element={<BusinessRegister />} />
+              <Route path="/business/login" element={<BusinessLogin />} />
+              <Route path="/business/dashboard" element={<BusinessDashboard />} />
+              <Route path="/business/profile" element={<BusinessProfile />} />
+              <Route path="/business/add" element={<AddBusiness />} />
+              <Route path="/business/my-listings" element={<MyListings />} />
+              <Route path="/business/view/:businessId" element={<BusinessView />} />
+              <Route path="/business/edit/:businessId" element={<EditBusiness />} />
+              
+              {/* Policy Routes */}
+              <Route path="/terms/cancellation-refund" element={<CancellationRefund />} />
+              <Route path="/terms/contact-us" element={<ContactUs />} />
+              <Route path="/terms/privacy" element={<Privacy />} />
+              <Route path="/terms/shipping" element={<Shipping />} />
+              <Route path="/terms/terms" element={<Terms />} />
+
+              {/* Admin Routes with Secret URL */}
+              <Route path={`/admin/${adminSecretPath}/login`} element={<AdminLogin />} />
+              
+              {/* Protected Admin Routes */}
+              <Route path={`/admin/${adminSecretPath}`} element={<AdminProtectedRoute />}>
+                <Route path="dashboard" element={<AdminDashboard />} />
+                {/* More admin routes will be added here */}
+              </Route>
+            </Routes>
+          </BusinessProvider>
         </AdminProvider>
       </CreditProvider>
     </Router>
