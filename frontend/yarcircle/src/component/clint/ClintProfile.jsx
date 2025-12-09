@@ -144,10 +144,27 @@ const ClintProfile = () => {
     // determine viewport from container if available to avoid mismatches
     const viewport = cropContainerRef.current ? Math.round(cropContainerRef.current.clientWidth) : 300
     setCropViewport(viewport)
-    const displayedHeight = viewport
-    const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
-    setCropScale(1)
-    setCropPos({ x: (viewport - displayedWidth) / 2, y: 0 })
+    
+    // Calculate the minimum scale needed to fill the viewport
+    const imgAspect = img.naturalWidth / img.naturalHeight
+    let initialScale = 1
+    let displayedWidth, displayedHeight
+    
+    if (imgAspect > 1) {
+      // Landscape image - scale by height
+      displayedHeight = viewport
+      displayedWidth = displayedHeight * imgAspect
+      initialScale = 1
+    } else {
+      // Portrait image - scale by width
+      displayedWidth = viewport
+      displayedHeight = displayedWidth / imgAspect
+      initialScale = 1
+    }
+    
+    setCropScale(initialScale)
+    // Center the image in the viewport
+    setCropPos({ x: (viewport - displayedWidth * initialScale) / 2, y: (viewport - displayedHeight * initialScale) / 2 })
   }
 
   const onMouseDown = (e) => {
@@ -191,15 +208,24 @@ const ClintProfile = () => {
     const img = imgRef.current
     const viewport = cropViewport || 300 // px square
 
+    // Calculate how the image is displayed (always height-based for square viewport)
     const displayedHeight = viewport
     const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
 
     const scale = cropScale
 
-    const sx = Math.max(0, ((0 - cropPos.x) / (displayedWidth * scale)) * img.naturalWidth)
-    const sy = Math.max(0, ((0 - cropPos.y) / (displayedHeight * scale)) * img.naturalHeight)
-    const sWidth = Math.min(img.naturalWidth, (viewport / (displayedWidth * scale)) * img.naturalWidth)
-    const sHeight = Math.min(img.naturalHeight, (viewport / (displayedHeight * scale)) * img.naturalHeight)
+    // Calculate the visible/scaled dimensions
+    const scaledWidth = displayedWidth * scale
+    const scaledHeight = displayedHeight * scale
+
+    // Calculate source coordinates in original image
+    // We need to map from viewport coordinates to source image coordinates
+    const sx = Math.max(0, (-cropPos.x / scaledWidth) * img.naturalWidth)
+    const sy = Math.max(0, (-cropPos.y / scaledHeight) * img.naturalHeight)
+    
+    // Calculate source dimensions (what portion of the original image is visible in viewport)
+    const sWidth = Math.min(img.naturalWidth - sx, (viewport / scaledWidth) * img.naturalWidth)
+    const sHeight = Math.min(img.naturalHeight - sy, (viewport / scaledHeight) * img.naturalHeight)
 
     const canvasSize = 600
     const canvas = document.createElement('canvas')
@@ -216,7 +242,7 @@ const ClintProfile = () => {
       return null
     }
 
-    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.95))
   }
 
   const handleUploadPhoto = async () => {
@@ -359,15 +385,23 @@ const ClintProfile = () => {
     const vw = coverViewport.w || 900
     const vh = coverViewport.h || Math.round(vw * 0.3)
 
+    // Calculate how the image is displayed
     const displayedHeight = vh
     const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
 
     const scale = coverCropScale
 
-    const sx = Math.max(0, ((0 - coverCropPos.x) / (displayedWidth * scale)) * img.naturalWidth)
-    const sy = Math.max(0, ((0 - coverCropPos.y) / (displayedHeight * scale)) * img.naturalHeight)
-    const sWidth = Math.min(img.naturalWidth, (vw / (displayedWidth * scale)) * img.naturalWidth)
-    const sHeight = Math.min(img.naturalHeight, (vh / (displayedHeight * scale)) * img.naturalHeight)
+    // Calculate the visible/scaled dimensions
+    const scaledWidth = displayedWidth * scale
+    const scaledHeight = displayedHeight * scale
+
+    // Calculate source coordinates in original image
+    const sx = Math.max(0, (-coverCropPos.x / scaledWidth) * img.naturalWidth)
+    const sy = Math.max(0, (-coverCropPos.y / scaledHeight) * img.naturalHeight)
+    
+    // Calculate source dimensions
+    const sWidth = Math.min(img.naturalWidth - sx, (vw / scaledWidth) * img.naturalWidth)
+    const sHeight = Math.min(img.naturalHeight - sy, (vh / scaledHeight) * img.naturalHeight)
 
     const canvasW = 1200
     const canvasH = 360
@@ -385,7 +419,7 @@ const ClintProfile = () => {
       return null
     }
 
-    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.95))
   }
 
   const generateCoverPreview = async () => {
@@ -1257,10 +1291,16 @@ const ClintProfile = () => {
               {/* Preview + Cropper */}
               {previewUrl && (
                 <div className="mb-6 flex flex-col items-center">
-                  <div className="w-72 h-72 bg-gray-100 relative overflow-hidden rounded-lg border border-gray-200">
+                  <div ref={cropContainerRef} className="w-80 h-80 bg-gray-100 relative overflow-hidden rounded-lg border border-gray-200">
                     <div
                       className="absolute top-0 left-0"
-                      style={{ transform: `translate(${cropPos.x}px, ${cropPos.y}px) scale(${cropScale})`, transformOrigin: 'top left', cursor: isDragging ? 'grabbing' : 'grab' }}
+                      style={{ 
+                        transform: `translate(${cropPos.x}px, ${cropPos.y}px) scale(${cropScale})`, 
+                        transformOrigin: 'top left', 
+                        cursor: isDragging ? 'grabbing' : 'grab',
+                        width: 'auto',
+                        height: 'auto'
+                      }}
                       onMouseDown={onMouseDown}
                       onMouseMove={onMouseMove}
                       onMouseUp={onMouseUp}
@@ -1274,18 +1314,51 @@ const ClintProfile = () => {
                         src={previewUrl}
                         alt="Preview"
                         onLoad={onPreviewImageLoad}
-                        style={{ height: '300px', width: 'auto', display: 'block', userSelect: 'none', pointerEvents: 'none' }}
+                        style={{ 
+                          maxWidth: 'none',
+                          width: imgNatural.width && imgNatural.height 
+                            ? (imgNatural.width > imgNatural.height 
+                              ? `${(cropViewport || 320) * (imgNatural.width / imgNatural.height)}px` 
+                              : `${cropViewport || 320}px`)
+                            : 'auto',
+                          height: imgNatural.width && imgNatural.height
+                            ? (imgNatural.width > imgNatural.height
+                              ? `${cropViewport || 320}px`
+                              : `${(cropViewport || 320) * (imgNatural.height / imgNatural.width)}px`)
+                            : 'auto',
+                          display: 'block', 
+                          userSelect: 'none', 
+                          pointerEvents: 'none' 
+                        }}
                       />
                     </div>
                     {/* Overlay circle to indicate final avatar crop */}
                     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                      <div className="w-56 h-56 rounded-full ring-4 ring-white/60 shadow-inner"></div>
+                      <div className="w-64 h-64 rounded-full ring-4 ring-white/60 shadow-inner"></div>
                     </div>
                   </div>
-                  <div className="w-72 mt-3 flex items-center gap-3">
+                  <div className="w-80 mt-3 flex items-center gap-3">
                     <label className="text-sm text-gray-600">Zoom</label>
                     <input type="range" min="1" max="3" step="0.01" value={cropScale} onChange={(e) => setCropScale(parseFloat(e.target.value))} className="flex-1" />
-                    <button onClick={() => { setCropScale(1); setCropPos({ x: 0, y: 0 }) }} className="px-3 py-1 bg-gray-200 rounded">Reset</button>
+                    <button 
+                      onClick={() => { 
+                        setCropScale(1)
+                        const viewport = cropViewport || 320
+                        const imgAspect = imgNatural.width / imgNatural.height
+                        let displayedWidth, displayedHeight
+                        if (imgAspect > 1) {
+                          displayedHeight = viewport
+                          displayedWidth = displayedHeight * imgAspect
+                        } else {
+                          displayedWidth = viewport
+                          displayedHeight = displayedWidth / imgAspect
+                        }
+                        setCropPos({ x: (viewport - displayedWidth) / 2, y: (viewport - displayedHeight) / 2 })
+                      }} 
+                      className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                    >
+                      Reset
+                    </button>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">Drag to reposition, use zoom to scale. The circular area is the final avatar.</p>
                 </div>

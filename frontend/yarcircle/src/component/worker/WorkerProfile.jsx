@@ -294,12 +294,28 @@ const WorkerProfile = () => {
   const onPreviewImageLoad = (e) => {
     const img = e.target
     setImgNatural({ width: img.naturalWidth, height: img.naturalHeight })
-    // center image horizontally inside square viewport
-    const viewport = 300
-    const displayedHeight = viewport
-    const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
-    setCropScale(1)
-    setCropPos({ x: (viewport - displayedWidth) / 2, y: 0 })
+    const viewport = 320
+    
+    // Calculate the minimum scale needed to fill the viewport
+    const imgAspect = img.naturalWidth / img.naturalHeight
+    let initialScale = 1
+    let displayedWidth, displayedHeight
+    
+    if (imgAspect > 1) {
+      // Landscape image - scale by height
+      displayedHeight = viewport
+      displayedWidth = displayedHeight * imgAspect
+      initialScale = 1
+    } else {
+      // Portrait image - scale by width
+      displayedWidth = viewport
+      displayedHeight = displayedWidth / imgAspect
+      initialScale = 1
+    }
+    
+    setCropScale(initialScale)
+    // Center the image in the viewport
+    setCropPos({ x: (viewport - displayedWidth * initialScale) / 2, y: (viewport - displayedHeight * initialScale) / 2 })
   }
 
   const onMouseDown = (e) => {
@@ -341,27 +357,33 @@ const WorkerProfile = () => {
   const createCroppedBlob = async () => {
     if (!imgRef.current) return null
     const img = imgRef.current
-    const viewport = 300 // px square
+    const viewport = 320 // px square
 
-    // displayed size before transform
+    // Calculate how the image is displayed (always height-based for square viewport)
     const displayedHeight = viewport
     const displayedWidth = (img.naturalWidth / img.naturalHeight) * displayedHeight
 
     const scale = cropScale
 
-    // compute source rectangle in image natural pixels
-    const sx = Math.max(0, ((0 - cropPos.x) / (displayedWidth * scale)) * img.naturalWidth)
-    const sy = Math.max(0, ((0 - cropPos.y) / (displayedHeight * scale)) * img.naturalHeight)
-    const sWidth = Math.min(img.naturalWidth, (viewport / (displayedWidth * scale)) * img.naturalWidth)
-    const sHeight = Math.min(img.naturalHeight, (viewport / (displayedHeight * scale)) * img.naturalHeight)
+    // Calculate the visible/scaled dimensions
+    const scaledWidth = displayedWidth * scale
+    const scaledHeight = displayedHeight * scale
 
-    const canvasSize = 600 // final output size
+    // Calculate source coordinates in original image
+    // We need to map from viewport coordinates to source image coordinates
+    const sx = Math.max(0, (-cropPos.x / scaledWidth) * img.naturalWidth)
+    const sy = Math.max(0, (-cropPos.y / scaledHeight) * img.naturalHeight)
+    
+    // Calculate source dimensions (what portion of the original image is visible in viewport)
+    const sWidth = Math.min(img.naturalWidth - sx, (viewport / scaledWidth) * img.naturalWidth)
+    const sHeight = Math.min(img.naturalHeight - sy, (viewport / scaledHeight) * img.naturalHeight)
+
+    const canvasSize = 600
     const canvas = document.createElement('canvas')
     canvas.width = canvasSize
     canvas.height = canvasSize
     const ctx = canvas.getContext('2d')
 
-    // draw
     ctx.fillStyle = '#fff'
     ctx.fillRect(0, 0, canvasSize, canvasSize)
     try {
@@ -371,7 +393,7 @@ const WorkerProfile = () => {
       return null
     }
 
-    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.95))
   }
 
   const handleUploadPhoto = async () => {
@@ -1683,10 +1705,16 @@ const WorkerProfile = () => {
               {/* Preview + Cropper */}
               {previewUrl && (
                 <div className="mb-6 flex flex-col items-center">
-                  <div className="w-72 h-72 bg-gray-100 relative overflow-hidden rounded-lg border border-gray-200">
+                  <div className="w-80 h-80 bg-gray-100 relative overflow-hidden rounded-lg border border-gray-200">
                     <div
                       className="absolute top-0 left-0"
-                      style={{ transform: `translate(${cropPos.x}px, ${cropPos.y}px) scale(${cropScale})`, transformOrigin: 'top left', cursor: isDragging ? 'grabbing' : 'grab' }}
+                      style={{ 
+                        transform: `translate(${cropPos.x}px, ${cropPos.y}px) scale(${cropScale})`, 
+                        transformOrigin: 'top left', 
+                        cursor: isDragging ? 'grabbing' : 'grab',
+                        width: 'auto',
+                        height: 'auto'
+                      }}
                       onMouseDown={onMouseDown}
                       onMouseMove={onMouseMove}
                       onMouseUp={onMouseUp}
@@ -1700,18 +1728,51 @@ const WorkerProfile = () => {
                         src={previewUrl}
                         alt="Preview"
                         onLoad={onPreviewImageLoad}
-                        style={{ height: '300px', width: 'auto', display: 'block', userSelect: 'none', pointerEvents: 'none' }}
+                        style={{ 
+                          maxWidth: 'none',
+                          width: imgNatural.width && imgNatural.height 
+                            ? (imgNatural.width > imgNatural.height 
+                              ? `${320 * (imgNatural.width / imgNatural.height)}px` 
+                              : '320px')
+                            : 'auto',
+                          height: imgNatural.width && imgNatural.height
+                            ? (imgNatural.width > imgNatural.height
+                              ? '320px'
+                              : `${320 * (imgNatural.height / imgNatural.width)}px`)
+                            : 'auto',
+                          display: 'block', 
+                          userSelect: 'none', 
+                          pointerEvents: 'none' 
+                        }}
                       />
                     </div>
                     {/* Overlay circle to indicate final avatar crop */}
                     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                      <div className="w-56 h-56 rounded-full ring-4 ring-white/60 shadow-inner"></div>
+                      <div className="w-64 h-64 rounded-full ring-4 ring-white/60 shadow-inner"></div>
                     </div>
                   </div>
-                  <div className="w-72 mt-3 flex items-center gap-3">
+                  <div className="w-80 mt-3 flex items-center gap-3">
                     <label className="text-sm text-gray-600">Zoom</label>
                     <input type="range" min="1" max="3" step="0.01" value={cropScale} onChange={(e) => setCropScale(parseFloat(e.target.value))} className="flex-1" />
-                    <button onClick={() => { setCropScale(1); setCropPos({ x: 0, y: 0 }) }} className="px-3 py-1 bg-gray-200 rounded">Reset</button>
+                    <button 
+                      onClick={() => { 
+                        setCropScale(1)
+                        const viewport = 320
+                        const imgAspect = imgNatural.width / imgNatural.height
+                        let displayedWidth, displayedHeight
+                        if (imgAspect > 1) {
+                          displayedHeight = viewport
+                          displayedWidth = displayedHeight * imgAspect
+                        } else {
+                          displayedWidth = viewport
+                          displayedHeight = displayedWidth / imgAspect
+                        }
+                        setCropPos({ x: (viewport - displayedWidth) / 2, y: (viewport - displayedHeight) / 2 })
+                      }} 
+                      className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                    >
+                      Reset
+                    </button>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">Drag to reposition, use zoom to scale. The circular area is the final avatar.</p>
                 </div>
