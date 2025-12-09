@@ -6,6 +6,7 @@ import imagekit from "../config/imagekit.js";
 
 // ==================== AUTHENTICATION ====================
 
+
 // Register Business Owner
 export const registerBusinessOwner = async (req, res) => {
   try {
@@ -1208,3 +1209,7 @@ export const uploadReviewImages = async (req, res) => {
     return res.status(500).json({ message: "Internal server error", status: 500 });
   }
 }
+
+
+
+

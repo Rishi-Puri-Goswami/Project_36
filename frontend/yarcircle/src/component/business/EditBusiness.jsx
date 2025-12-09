@@ -10,6 +10,9 @@ const EditBusiness = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [businessImages, setBusinessImages] = useState([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [deletingImage, setDeletingImage] = useState(null);
   
   const [formData, setFormData] = useState({
     businessName: '',
@@ -51,6 +54,7 @@ const EditBusiness = () => {
 
       if (response.ok) {
         const business = data.business;
+        setBusinessImages(business.businessImages || []);
         setFormData({
           businessName: business.businessName || '',
           businessType: business.businessType || '',
@@ -100,6 +104,85 @@ const EditBusiness = () => {
         ...formData,
         workingDays: [...formData.workingDays, day]
       });
+    }
+  };
+
+  const handleImageUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    if (businessImages.length + files.length > 10) {
+      setError('Maximum 10 images allowed');
+      return;
+    }
+
+    setUploadingImages(true);
+    setError('');
+
+    try {
+      const formDataFile = new FormData();
+      Array.from(files).forEach(file => {
+        formDataFile.append('images', file);
+      });
+
+      const response = await fetch(`${API_URL}/business/${businessId}/upload-images`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getBusinessToken()}`
+        },
+        body: formDataFile
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setBusinessImages(data.allImages || []);
+        setSuccess('Images uploaded successfully');
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(data.message || 'Failed to upload images');
+      }
+    } catch (err) {
+      setError('Network error while uploading images');
+    } finally {
+      setUploadingImages(false);
+      e.target.value = null;
+    }
+  };
+
+  const handleDeleteImage = async (imageUrl) => {
+    if (!window.confirm('Are you sure you want to delete this image?')) return;
+
+    setDeletingImage(imageUrl);
+    setError('');
+
+    try {
+      const updatedImages = businessImages.filter(img => img !== imageUrl);
+
+      const response = await fetch(`${API_URL}/business/${businessId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getBusinessToken()}`
+        },
+        body: JSON.stringify({
+          businessImages: updatedImages
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setBusinessImages(updatedImages);
+        setSuccess('Image deleted successfully');
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(data.message || 'Failed to delete image');
+      }
+    } catch (err) {
+      setError('Network error while deleting image');
+    } finally {
+      setDeletingImage(null);
     }
   };
 
@@ -453,6 +536,85 @@ const EditBusiness = () => {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                 placeholder="e.g., organic, local, wholesale (comma separated)"
               />
+            </div>
+
+            {/* Business Images */}
+            <div className="border-b pb-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Business Images</h3>
+              
+              {/* Current Images */}
+              {businessImages.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm text-gray-600 mb-3">Current Images ({businessImages.length}/10)</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {businessImages.map((img, idx) => (
+                      <div key={idx} className="relative group">
+                        <img
+                          src={img}
+                          alt={`Business ${idx + 1}`}
+                          className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteImage(img)}
+                          disabled={deletingImage === img}
+                          className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                          title="Delete image"
+                        >
+                          {deletingImage === img ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Upload New Images */}
+              {businessImages.length < 10 && (
+                <div>
+                  <label className="block text-gray-700 font-medium mb-2">
+                    Add More Images {businessImages.length > 0 && `(${10 - businessImages.length} remaining)`}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      disabled={uploadingImages}
+                      className="hidden"
+                      id="imageUpload"
+                    />
+                    <label
+                      htmlFor="imageUpload"
+                      className={`flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-purple-500 transition-colors ${
+                        uploadingImages ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      {uploadingImages ? (
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-2"></div>
+                          <span className="text-gray-500">Uploading...</span>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          <span className="text-gray-600">Click to upload images</span>
+                          <p className="text-xs text-gray-500 mt-1">Max 10 images (JPG, PNG)</p>
+                        </div>
+                      )}
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3">
