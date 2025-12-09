@@ -68,23 +68,25 @@ businessRouter.get('/my-businesses', business_auth, getMyBusinesses);
 businessRouter.put('/:businessId', business_auth, updateBusiness);
 businessRouter.delete('/:businessId', business_auth, deleteBusiness);
 
-// Upload Images
+// Upload Images (standalone upload must come before /:businessId routes)
 businessRouter.post('/upload-images', business_auth, upload.array('images', 10), uploadBusinessImages);
-businessRouter.post('/:businessId/upload-images', business_auth, upload.array('images', 10), uploadBusinessImages);
-businessRouter.post('/:businessId/upload-logo', business_auth, upload.single('logo'), uploadBusinessLogo);
 
-// ==================== REVIEW ROUTES ====================
-businessRouter.post('/:businessId/reviews', business_auth, addReview);
-businessRouter.put('/:businessId/reviews/:reviewId', business_auth, updateReview);
-businessRouter.delete('/:businessId/reviews/:reviewId', business_auth, deleteReview);
-businessRouter.get('/:businessId/reviews', getBusinessReviews);
+// ==================== REVIEW ROUTES (must come before /:businessId) ====================
 businessRouter.post('/reviews/upload-images', business_auth, upload.array('images', 5), uploadReviewImages);
 
-// ==================== PUBLIC ROUTES ====================
+// ==================== PUBLIC ROUTES (specific paths before params) ====================
 businessRouter.get('/types', getBusinessTypes);
 businessRouter.get('/filter-options', getFilterOptions);
 businessRouter.get('/all', getAllBusinesses);
 businessRouter.get('/search', searchBusinesses);
+
+// ==================== BUSINESS-SPECIFIC ROUTES (after specific paths) ====================
+businessRouter.post('/:businessId/upload-images', business_auth, upload.array('images', 10), uploadBusinessImages);
+businessRouter.post('/:businessId/upload-logo', business_auth, upload.single('logo'), uploadBusinessLogo);
+businessRouter.post('/:businessId/reviews', business_auth, addReview);
+businessRouter.put('/:businessId/reviews/:reviewId', business_auth, updateReview);
+businessRouter.delete('/:businessId/reviews/:reviewId', business_auth, deleteReview);
+businessRouter.get('/:businessId/reviews', getBusinessReviews);
 businessRouter.get('/:businessId', optional_business_auth, getBusinessById);
 
 export default businessRouter;
