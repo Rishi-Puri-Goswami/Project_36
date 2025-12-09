@@ -11,7 +11,7 @@ const BusinessProfile = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -374,7 +374,7 @@ const BusinessProfile = () => {
         {/* Quick Actions */}
         <div className="mt-6 bg-white rounded-2xl shadow-lg p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
-          
+
           <div className="space-y-3">
             <Link
               to="/business/my-listings"

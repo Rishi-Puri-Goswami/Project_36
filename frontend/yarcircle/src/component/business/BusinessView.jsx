@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Star, MapPin, Clock, Phone, Mail, User, Eye, Tag } from 'lucide-react';
+import { Star, MapPin, Clock, Phone, Mail, User, Eye, Tag, X, ChevronLeft, ChevronRight, Plus, Minus } from 'lucide-react';
 import { getBusinessToken } from '../../utils/businessAuth';
 import { API_URL } from '../../config/api';
 import { useBusiness } from '../../context/BusinessContext';
@@ -19,6 +19,14 @@ const BusinessView = () => {
   const [userReview, setUserReview] = useState(null);
   const [reviewsPage, setReviewsPage] = useState(1);
   const [totalReviewPages, setTotalReviewPages] = useState(1);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState(null);
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStart = React.useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 });
+  const touchStartX = React.useRef(null);
+  const touchLocked = React.useRef(false);
 
   useEffect(() => {
     fetchBusiness();
@@ -112,11 +120,138 @@ const BusinessView = () => {
     window.location.href = `tel:${business.contactPhone}`;
   };
 
+  const openLightbox = (img) => {
+    setLightboxImage(img);
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+    setLightboxOpen(true);
+    // lock scroll
+    document.body.style.overflow = 'hidden';
+  };
+
+  const closeLightbox = () => {
+    setLightboxOpen(false);
+    setLightboxImage(null);
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+    document.body.style.overflow = '';
+  };
+
+  const zoomIn = () => setZoom(z => Math.min(4, +(z + 0.25).toFixed(2)));
+  const zoomOut = () => {
+    setZoom(z => {
+      const next = +(z - 0.25).toFixed(2);
+      if (next <= 1) {
+        setOffset({ x: 0, y: 0 });
+        return 1;
+      }
+      return Math.max(1, next);
+    });
+  };
+
+  const handleWheel = (e) => {
+    if (!lightboxOpen) return;
+    e.preventDefault();
+    const delta = -e.deltaY || e.wheelDelta;
+    if (delta > 0) zoomIn(); else zoomOut();
+  };
+
+  const handleMouseDown = (e) => {
+    if (zoom <= 1) return;
+    setIsPanning(true);
+    panStart.current = {
+      x: e.clientX,
+      y: e.clientY,
+      offsetX: offset.x,
+      offsetY: offset.y
+    };
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isPanning) return;
+    const dx = e.clientX - panStart.current.x;
+    const dy = e.clientY - panStart.current.y;
+    setOffset({ x: panStart.current.offsetX + dx, y: panStart.current.offsetY + dy });
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleDoubleClick = () => {
+    if (zoom === 1) setZoom(2); else { setZoom(1); setOffset({ x: 0, y: 0 }); }
+  };
+
+  const currentImageIndex = () => {
+    if (!business?.businessImages || !lightboxImage) return -1;
+    return business.businessImages.findIndex(i => i === lightboxImage);
+  };
+
+  const showPrev = () => {
+    const idx = currentImageIndex();
+    if (idx <= 0) return;
+    const prev = business.businessImages[idx - 1];
+    setLightboxImage(prev);
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  };
+
+  const showNext = () => {
+    const idx = currentImageIndex();
+    if (idx === -1) return;
+    if (idx >= business.businessImages.length - 1) return;
+    const next = business.businessImages[idx + 1];
+    setLightboxImage(next);
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  };
+
+  const onTouchStart = (e) => {
+    if (!e.touches || e.touches.length === 0) return;
+    touchStartX.current = e.touches[0].clientX;
+    touchLocked.current = false;
+  };
+
+  const onTouchMove = (e) => {
+    if (!touchStartX.current || touchLocked.current) return;
+    const currentX = e.touches[0].clientX;
+    const dx = currentX - touchStartX.current;
+    if (Math.abs(dx) > 40) {
+      touchLocked.current = true;
+      if (dx > 0) showPrev(); else showNext();
+    }
+  };
+
+  const onTouchEnd = () => {
+    touchStartX.current = null;
+    touchLocked.current = false;
+  };
+
   const handleWhatsApp = () => {
     const number = business.whatsappNumber || business.contactPhone;
     const message = encodeURIComponent(`Hi, I found your business "${business.businessName}" on YaarCircle.`);
     window.open(`https://wa.me/91${number}?text=${message}`, '_blank');
   };
+
+  // close on escape
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape' && lightboxOpen) closeLightbox();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightboxOpen]);
+
+  // keyboard navigation for images
+  useEffect(() => {
+    const onKeyNav = (e) => {
+      if (!lightboxOpen) return;
+      if (e.key === 'ArrowLeft') showPrev();
+      if (e.key === 'ArrowRight') showNext();
+    };
+    window.addEventListener('keydown', onKeyNav);
+    return () => window.removeEventListener('keydown', onKeyNav);
+  }, [lightboxOpen, business, lightboxImage]);
 
   if (loading) {
     return (
@@ -173,7 +308,8 @@ const BusinessView = () => {
                 <img
                   src={business.businessImages[activeImage]}
                   alt={business.businessName}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover cursor-zoom-in"
+                  onClick={() => openLightbox(business.businessImages[activeImage])}
                 />
               </div>
               {business.businessImages.length > 1 && (
@@ -325,6 +461,86 @@ const BusinessView = () => {
             </div>
           </div>
         </div>
+
+        {/* Lightbox / Modal for image zoom */}
+        {lightboxOpen && (
+          <div
+            className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+            onWheel={handleWheel}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="relative max-w-5xl w-full max-h-full">
+              <button
+                onClick={closeLightbox}
+                className="absolute top-3 right-3 bg-white/90 hover:bg-white rounded-full p-2 shadow z-30"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5 text-gray-800" />
+              </button>
+
+              <div className="absolute top-3 left-3 z-30 flex gap-2 items-center">
+                <button onClick={zoomOut} className="bg-white/90 hover:bg-white rounded-full p-2 shadow" title="Zoom out">
+                  <Minus className="w-4 h-4 text-gray-800" />
+                </button>
+                <div className="text-sm bg-white/70 px-2 py-1 rounded shadow text-gray-800">{zoom}x</div>
+                <button onClick={zoomIn} className="bg-white/90 hover:bg-white rounded-full p-2 shadow" title="Zoom in">
+                  <Plus className="w-4 h-4 text-gray-800" />
+                </button>
+                <button onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }} className="bg-white/90 hover:bg-white rounded-full p-2 shadow" title="Reset">
+                  Reset
+                </button>
+              </div>
+
+              <div
+                className="flex items-center justify-center overflow-hidden bg-black/0 cursor-grab relative"
+                style={{ width: '100%', height: '80vh' }}
+                onMouseDown={handleMouseDown}
+                onDoubleClick={handleDoubleClick}
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+              >
+                {/* prev/next buttons */}
+                <button
+                  onClick={showPrev}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 z-30 shadow"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="w-6 h-6 text-gray-800" />
+                </button>
+                <button
+                  onClick={showNext}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 z-30 shadow"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="w-6 h-6 text-gray-800" />
+                </button>
+
+                <img
+                  src={lightboxImage}
+                  alt="Preview"
+                  draggable={false}
+                  style={{
+                    transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                    transition: isPanning ? 'none' : 'transform 0.12s ease-out',
+                    maxWidth: '100%',
+                    maxHeight: '100%'
+                  }}
+                  className={isPanning ? 'cursor-grabbing select-none' : 'select-none'}
+                />
+
+                {/* bottom caption / counter */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 bg-black/50 text-white text-sm px-3 py-1 rounded">
+                  {business?.businessImages ? `${currentImageIndex() + 1} / ${business.businessImages.length}` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Reviews Section */}
         <div className="bg-white mt-4 p-6">
