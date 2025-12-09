@@ -70,7 +70,7 @@ const LandingPage = () => {
               </div>
               
               <h2 className="text-2xl font-bold text-gray-800 mb-3">
-                I'm a Client
+                Find Skilled worker Faster
               </h2>
               
               <p className="text-gray-600 mb-4 text-sm">

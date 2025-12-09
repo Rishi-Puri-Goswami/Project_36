@@ -24,6 +24,17 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
   
   // ✨ Force re-render every minute to update timers
   const [, forceUpdate] = useState(0)
+
+  // Helper to format ISO date strings into a short human readable form
+  const formatDate = (iso) => {
+    if (!iso) return 'Unknown'
+    try {
+      const d = new Date(iso)
+      return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+    } catch (err) {
+      return iso
+    }
+  }
   
   // ✨ Track which workers have been unlocked with timestamps (24-hour access)
   // Load from localStorage on mount
@@ -571,6 +582,10 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-800">{worker.name}</h3>
                     <p className="text-sm text-gray-500">{worker.workType}</p>
+                    {/* Show when the worker created their profile */}
+                    {worker.createdAt && (
+                      <p className="text-xs text-gray-600 mt-1">Joined {formatDate(worker.createdAt)}</p>
+                    )}
                   </div>
                 </div>
 
