@@ -169,7 +169,7 @@ const ClintRegister = () => {
       <div className="max-w-md w-full">
         {/* Back Button */}
         <button 
-          onClick={() => navigate('/client')}
+          onClick={() => navigate('/client/login')}
           className="mb-4 text-blue-600 hover:text-blue-800 flex items-center gap-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
