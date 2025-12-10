@@ -541,10 +541,16 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
           return (
             <div 
               key={worker._id} 
-              className={`bg-white rounded-lg shadow-md hover:shadow-xl transition-all overflow-hidden ${
+              className={`relative bg-white rounded-lg shadow-md hover:shadow-xl transition-all overflow-hidden ${
                 isUnlocked ? 'border-2 border-green-400' : ''
               }`}
             >
+              {/* Top-right joined badge */}
+              {worker.createdAt && (
+                <div className="absolute top-3 right-3 z-10 text-xs text-gray-700 bg-white/90 px-2 py-1 rounded-full shadow-sm">
+                  Joined {formatDate(worker.createdAt)}
+                </div>
+              )}
               <div className="p-6">
                 {/* Unlocked Badge with Timer */}
                 {isUnlocked && (
@@ -581,11 +587,12 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                   )}
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-800">{worker.name}</h3>
-                    <p className="text-sm text-gray-500">{worker.workType}</p>
-                    {/* Show when the worker created their profile */}
-                    {worker.createdAt && (
-                      <p className="text-xs text-gray-600 mt-1">Joined {formatDate(worker.createdAt)}</p>
-                    )}
+                    <p className="text-sm text-gray-500 flex items-center gap-2">
+                      <span>{worker.workType}</span>
+                      {worker.experience && (
+                        <span className="text-xs text-gray-600">• {worker.experience} yr{worker.experience > 1 ? 's' : ''}</span>
+                      )}
+                    </p>
                   </div>
                 </div>
 
@@ -609,14 +616,7 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
                     </div>
                   )}
                   
-                  {worker.experience && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      <span className="text-gray-600">{worker.experience} years experience</span>
-                    </div>
-                  )}
+                  
                   
                   {/* Post Count Badge */}
                   {worker.postCount !== undefined && worker.postCount > 0 && (

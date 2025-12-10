@@ -163,7 +163,7 @@ const ClintRegister = () => {
       setLoading(false)
     }
   }
-
+                                                  
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
@@ -257,19 +257,6 @@ const ClintRegister = () => {
                   placeholder="Enter 10-digit phone number"
                 />
               </div>
-{/* 
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">Address *</label>
-                <textarea
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  required
-                  rows="2"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter your address"
-                />
-              </div> */}
 
               <div>
                 <label className="block text-gray-700 font-medium mb-2">Password *</label>
