@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { API_URL } from '../../config/api'
 import { useCredit } from '../../context/CreditContext'
 
-const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', navbarFilters = {} }) => {
+const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', navbarFilters = {}, isAuthenticated = false, onLoginRequired }) => {
   const [workers, setWorkers] = useState([])
   const [loading, setLoading] = useState(true)
   const [viewingWorker, setViewingWorker] = useState(null)
@@ -92,8 +92,11 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
 
   useEffect(() => {
     fetchWorkers()
-    fetchCredits() // Load credits when component mounts
-  }, [refreshTrigger])
+    // Only fetch credits if authenticated
+    if (isAuthenticated) {
+      fetchCredits()
+    }
+  }, [refreshTrigger, isAuthenticated])
   
   // Sync navbar search with local search
   useEffect(() => {
@@ -189,13 +192,18 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
       const queryString = params.toString()
       const url = `${API_URL}/clients/workers/available${queryString ? `?${queryString}` : ''}`
       
+      // Build headers - only add Authorization if token exists
+      const headers = {
+        'Content-Type': 'application/json'
+      }
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+      
       const response = await fetch(url, {
         method: 'GET',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+        headers
       })
 
       if (response.ok) {
@@ -261,6 +269,14 @@ const WorkersList = ({ onUpgradeNeeded, refreshTrigger, navbarSearchQuery = '', 
   }
 
   const handleViewDetails = async (worker) => {
+    // Check authentication first - if not authenticated, show login prompt
+    if (!isAuthenticated) {
+      if (onLoginRequired) {
+        onLoginRequired()
+      }
+      return
+    }
+    
     // Check if this worker's unlock has expired
     const wasUnlocked = unlockedWorkers.has(worker._id)
     const unlockStillValid = isUnlockValid(worker._id)

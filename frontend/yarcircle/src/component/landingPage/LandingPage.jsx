@@ -7,15 +7,8 @@ const LandingPage = () => {
   const navigate = useNavigate()
 
   const handleClientClick = async () => {
-    const { isAuthenticated } = await checkAuth()
-    
-    if (isAuthenticated) {
-      // User is logged in, go to dashboard
-      navigate('/client/dashboard')
-    } else {
-      // User is not logged in, go to login page
-      navigate('/client/login')
-    }
+    // Always go to dashboard (guest or authenticated)
+    navigate('/client/dashboard')
   }
 
   const handleWorkerClick = async () => {
@@ -24,11 +17,8 @@ const LandingPage = () => {
   }
 
   const handleBusinessClick = () => {
-    if (isBusinessAuthenticated()) {
-      navigate('/business/dashboard')
-    } else {
-      navigate('/business/register')
-    }
+    // Always go to dashboard (guest or authenticated)
+    navigate('/business/dashboard')
   }
 
   return (

@@ -8,6 +8,7 @@ import PricingModal from './PricingModal'
 import WorkersList from './WorkersList'
 import CreditDisplay from './CreditDisplay'
 import LocationPermissionModal from '../common/LocationPermissionModal'
+import LoginPromptModal from '../common/LoginPromptModal'
 
 const ClintDashboard = () => {
   const navigate = useNavigate()
@@ -16,6 +17,8 @@ const ClintDashboard = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [showPricingModal, setShowPricingModal] = useState(false)
   const [showLocationModal, setShowLocationModal] = useState(false)
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userLocation, setUserLocation] = useState(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [workers, setWorkers] = useState([])
@@ -30,26 +33,33 @@ const ClintDashboard = () => {
   const [availableWorkTypes, setAvailableWorkTypes] = useState([])
 
   useEffect(() => {
-    // Check authentication first
-    if (!isClientAuthenticated()) {
-      navigate('/client/login')
-      return
-    }
-    fetchClientData()
+    // Check authentication status
+    const authenticated = isClientAuthenticated()
+    setIsAuthenticated(authenticated)
+    
+    // Fetch workers for everyone (guest and authenticated)
     fetchWorkers()
     
-    // Check if location permission should be requested
-    const locationSkipped = localStorage.getItem('clientLocationSkipped')
-    const savedLocation = localStorage.getItem('clientLocation')
-    
-    if (!locationSkipped && !savedLocation) {
-      // Show location modal after a short delay
-      setTimeout(() => {
-        setShowLocationModal(true)
-      }, 1500)
-    } else if (savedLocation) {
-      // Load saved location
-      setUserLocation(JSON.parse(savedLocation))
+    // Only fetch client data if authenticated
+    if (authenticated) {
+      fetchClientData()
+      
+      // Check if location permission should be requested
+      const locationSkipped = localStorage.getItem('clientLocationSkipped')
+      const savedLocation = localStorage.getItem('clientLocation')
+      
+      if (!locationSkipped && !savedLocation) {
+        // Show location modal after a short delay
+        setTimeout(() => {
+          setShowLocationModal(true)
+        }, 1500)
+      } else if (savedLocation) {
+        // Load saved location
+        setUserLocation(JSON.parse(savedLocation))
+      }
+    } else {
+      // Guest user - skip location and client data
+      setLoading(false)
     }
   }, [navigate])
 
@@ -80,14 +90,14 @@ const ClintDashboard = () => {
         const data = await response.json()
         setClient(data.client)
       } else {
-        // If not authenticated, redirect to login
+        // If not authenticated, clear token but don't redirect (allow guest mode)
         clearClientToken()
-        navigate('/client/login')
+        setIsAuthenticated(false)
       }
     } catch (error) {
       console.error('Error fetching client data:', error)
       clearClientToken()
-      navigate('/client/login')
+      setIsAuthenticated(false)
     } finally {
       setLoading(false)
     }
@@ -261,8 +271,8 @@ const ClintDashboard = () => {
 
   return (
     <div className="min-h-screen bg-neutral-200">
-      {/* Real-time Credit Display - Floating Badge */}
-      <CreditDisplay />
+      {/* Real-time Credit Display - Floating Badge (only for authenticated users) */}
+      {isAuthenticated && <CreditDisplay />}
       
       {/* Header */}
       <header className="backdrop-blur-2xl shadow-sm">
@@ -337,7 +347,13 @@ const ClintDashboard = () => {
             </button>
 
             <button 
-              onClick={() => navigate('/client/worker-posts')}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  setShowLoginPrompt(true)
+                } else {
+                  navigate('/client/worker-posts')
+                }
+              }}
               className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-[#1e40af] hover:bg-[#1e40af]/10 rounded-lg transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -356,7 +372,13 @@ const ClintDashboard = () => {
             {/* </button> */} 
 
             <button 
-              onClick={() => navigate('/client/pricing')}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  setShowLoginPrompt(true)
+                } else {
+                  navigate('/client/pricing')
+                }
+              }}
               className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-[#1e40af] hover:bg-[#1e40af]/10 rounded-lg transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -366,7 +388,13 @@ const ClintDashboard = () => {
             </button>
             
             <button 
-              onClick={() => setIsSettingsOpen(true)}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  setShowLoginPrompt(true)
+                } else {
+                  setIsSettingsOpen(true)
+                }
+              }}
               className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-[#1e40af] hover:bg-[#1e40af]/10 rounded-lg transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -377,32 +405,58 @@ const ClintDashboard = () => {
             </button>
           </div>
 
-          {/* Right: Profile */}
+          {/* Right: Profile or Login/Register */}
           <div className="flex items-center gap-4">
-            <div className="text-right hidden md:block">
-              <p className="text-sm font-semibold text-gray-800">{client?.name}</p>
-              <p className="text-xs text-gray-500">{client?.email}</p>
-            </div>
-            
-            {/* Profile Photo Circle */}
-            <div className="relative">
-              <div 
-                onClick={() => navigate('/client/profile')}
-                className="w-12 h-12 rounded-full bg-[#1e40af] flex items-center justify-center text-white font-bold text-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow"
-              >
-                {client?.profilePicture ? (
-                  <img 
-                    src={client.profilePicture} 
-                    alt={client.name} 
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                ) : (
-                  client?.name?.charAt(0).toUpperCase()
-                )}
+            {isAuthenticated && client ? (
+              <>
+                <div className="text-right hidden md:block">
+                  <p className="text-sm font-semibold text-gray-800">{client.name}</p>
+                  <p className="text-xs text-gray-500">{client.email}</p>
+                </div>
+                
+                {/* Profile Photo Circle */}
+                <div className="relative">
+                  <div 
+                    onClick={() => navigate('/client/profile')}
+                    className="w-12 h-12 rounded-full bg-[#1e40af] flex items-center justify-center text-white font-bold text-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+                  >
+                    {client.profilePicture ? (
+                      <img 
+                        src={client.profilePicture} 
+                        alt={client.name} 
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      client.name?.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  {/* Active Status Indicator */}
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                </div>
+              </>
+            ) : (
+              /* Guest user - show login/register buttons */
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => navigate('/client/login')}
+                  className="px-4 py-2 text-[#1e40af] font-semibold hover:bg-[#1e40af]/10 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                  <span className="hidden sm:inline">Login</span>
+                </button>
+                <button
+                  onClick={() => navigate('/client/register')}
+                  className="px-4 py-2 bg-[#1e40af] text-white font-semibold rounded-lg hover:bg-[#1e40af]/90 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                  <span className="hidden sm:inline">Register</span>
+                </button>
               </div>
-              {/* Active Status Indicator */}
-              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-            </div>
+            )}
 
             {/* Logout Button - Commented for future use */}
             {/* <button 
@@ -418,10 +472,45 @@ const ClintDashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Subscription Status Bar */}
-        <div className="mb-6">
-          <SubscriptionStatus onUpgradeClick={handleUpgradeClick} />
-        </div>
+        {/* Subscription Status Bar (only for authenticated users) */}
+        {isAuthenticated && (
+          <div className="mb-6">
+            <SubscriptionStatus onUpgradeClick={handleUpgradeClick} />
+          </div>
+        )}
+        
+        {/* Guest user welcome banner */}
+        {!isAuthenticated && (
+          <div className="mb-6 bg-white rounded-lg shadow-md p-6 border-l-4 border-[#1e40af]">
+            <div className="flex items-start gap-4">
+              <div className="bg-[#1e40af]/10 p-3 rounded-lg">
+                <svg className="w-6 h-6 text-[#1e40af]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-800 mb-1">Browsing as Guest</h3>
+                <p className="text-gray-600 text-sm mb-3">
+                  You can browse workers, but you'll need to login to view full contact details and unlock profiles.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => navigate('/client/login')}
+                    className="px-4 py-2 bg-[#1e40af] text-white rounded-lg font-semibold hover:bg-[#1e40af]/90 transition-colors text-sm"
+                  >
+                    Login Now
+                  </button>
+                  <button
+                    onClick={() => navigate('/client/register')}
+                    className="px-4 py-2 border-2 border-[#1e40af] text-[#1e40af] rounded-lg font-semibold hover:bg-[#1e40af]/5 transition-colors text-sm"
+                  >
+                    Create Account
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Mobile Search Bar */}
         <div className="lg:hidden mb-6">
@@ -461,6 +550,8 @@ const ClintDashboard = () => {
             refreshTrigger={refreshTrigger}
             navbarSearchQuery={searchQuery}
             navbarFilters={filters}
+            isAuthenticated={isAuthenticated}
+            onLoginRequired={() => setShowLoginPrompt(true)}
           />
         </div>
       </main>
@@ -607,6 +698,13 @@ const ClintDashboard = () => {
           }}
         />
       )}
+      
+      {/* Login Prompt Modal */}
+      <LoginPromptModal 
+        isOpen={showLoginPrompt}
+        onClose={() => setShowLoginPrompt(false)}
+        userType="client"
+      />
     </div>
   )
 }

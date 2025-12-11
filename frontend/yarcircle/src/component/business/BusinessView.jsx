@@ -9,7 +9,7 @@ import ReviewForm from './ReviewForm';
 const BusinessView = () => {
   const navigate = useNavigate();
   const { businessId } = useParams();
-  const { businessUser, isAuthenticated } = useBusiness();
+  const { user: businessUser, isAuthenticated } = useBusiness();
   const [business, setBusiness] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +33,13 @@ const BusinessView = () => {
     fetchReviews();
   }, [businessId]);
 
+  // Refetch when user authentication changes
+  useEffect(() => {
+    if (isAuthenticated && businessUser?._id) {
+      fetchBusiness();
+    }
+  }, [isAuthenticated, businessUser?._id]);
+
   const fetchBusiness = async () => {
     try {
       const token = getBusinessToken();
@@ -44,11 +51,17 @@ const BusinessView = () => {
       if (response.ok) {
         setBusiness(data.business);
         // Check if user has already reviewed
-        if (isAuthenticated && data.business.reviews) {
+        if (isAuthenticated && businessUser?._id && data.business.reviews) {
           const existing = data.business.reviews.find(
-            r => r.reviewer?._id === businessUser?._id || r.reviewer === businessUser?._id
+            r => {
+              const reviewerId = r.reviewer?._id || r.reviewer;
+              const userId = businessUser._id;
+              return reviewerId?.toString() === userId?.toString();
+            }
           );
-          setUserReview(existing);
+          setUserReview(existing || null);
+        } else if (!isAuthenticated) {
+          setUserReview(null);
         }
       } else {
         setError(data.message || 'Business not found');
@@ -75,10 +88,11 @@ const BusinessView = () => {
     }
   };
 
-  const handleReviewAdded = (data) => {
+  const handleReviewAdded = async (data) => {
     setShowReviewForm(false);
-    fetchBusiness();
-    fetchReviews();
+    // Refetch business data to get the complete review with _id
+    await fetchBusiness();
+    await fetchReviews();
   };
 
   const handleDeleteReview = async (reviewId) => {
@@ -92,13 +106,19 @@ const BusinessView = () => {
         }
       });
 
+      const data = await response.json();
+
       if (response.ok) {
         setUserReview(null);
         fetchBusiness();
         fetchReviews();
+        alert('Review deleted successfully');
+      } else {
+        alert(data.message || 'Failed to delete review');
       }
     } catch (err) {
       console.error('Error deleting review:', err);
+      alert('Error deleting review. Please try again.');
     }
   };
 
@@ -595,49 +615,8 @@ const BusinessView = () => {
                 businessId={businessId}
                 onReviewAdded={handleReviewAdded}
                 onClose={() => setShowReviewForm(false)}
+                existingReview={userReview}
               />
-            </div>
-          )}
-
-          {/* User's Review */}
-          {userReview && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <div className="font-semibold text-gray-800">Your Review</div>
-                  {renderStars(userReview.rating)}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowReviewForm(true)}
-                    className="text-blue-600 hover:text-blue-800 text-sm"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDeleteReview(userReview._id)}
-                    className="text-red-600 hover:text-red-800 text-sm"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-              <p className="text-gray-700 mb-2">{userReview.comment}</p>
-              {userReview.images && userReview.images.length > 0 && (
-                <div className="grid grid-cols-3 gap-2 mt-2">
-                  {userReview.images.map((img, idx) => (
-                    <img
-                      key={idx}
-                      src={img}
-                      alt="Review"
-                      className="w-full h-24 object-cover rounded-lg"
-                    />
-                  ))}
-                </div>
-              )}
-              <div className="text-xs text-gray-500 mt-2">
-                {new Date(userReview.createdAt).toLocaleDateString()}
-              </div>
             </div>
           )}
 
@@ -649,50 +628,92 @@ const BusinessView = () => {
                 <p>No reviews yet. Be the first to review!</p>
               </div>
             ) : (
-              reviews.map((review) => (
-                <div key={review._id} className="border-b pb-4 last:border-b-0">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                      {review.reviewer?.profilePicture ? (
-                        <img
-                          src={review.reviewer.profilePicture}
-                          alt={review.reviewerName}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <User className="w-6 h-6 text-gray-500" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <div>
-                          <div className="font-semibold text-gray-800">
-                            {review.reviewerName}
-                          </div>
-                          {renderStars(review.rating)}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(review.createdAt).toLocaleDateString()}
-                        </div>
+              reviews.map((review) => {
+                // Check if this review belongs to the current user
+                const reviewerId = review.reviewer?._id || review.reviewer;
+                const userId = businessUser?._id;
+                const isUserReview = isAuthenticated && userId && 
+                  reviewerId?.toString() === userId?.toString();
+
+                // Debug logging
+                if (isAuthenticated) {
+                  console.log('Review check:', {
+                    reviewerName: review.reviewerName,
+                    reviewerId: reviewerId?.toString(),
+                    userId: userId?.toString(),
+                    isMatch: isUserReview
+                  });
+                }
+
+                return (
+                  <div 
+                    key={review._id} 
+                    className={`border-b pb-4 last:border-b-0 relative ${
+                      isUserReview ? 'bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4' : ''
+                    }`}
+                  >
+                    {/* Edit and Delete buttons for user's own review */}
+                    {isUserReview && (
+                      <div className="absolute top-3 right-3 flex gap-2 z-10">
+                        <button
+                          onClick={() => setShowReviewForm(true)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors shadow-md"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteReview(review._id)}
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors shadow-md"
+                        >
+                          Delete
+                        </button>
                       </div>
-                      <p className="text-gray-700 mb-2">{review.comment}</p>
-                      {review.images && review.images.length > 0 && (
-                        <div className="grid grid-cols-3 gap-2 mt-2">
-                          {review.images.map((img, idx) => (
-                            <img
-                              key={idx}
-                              src={img}
-                              alt="Review"
-                              className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80"
-                              onClick={() => window.open(img, '_blank')}
-                            />
-                          ))}
+                    )}
+
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                        {review.reviewer?.profilePicture ? (
+                          <img
+                            src={review.reviewer.profilePicture}
+                            alt={review.reviewerName}
+                            className="w-full h-full rounded-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-6 h-6 text-gray-500" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1 pr-32">
+                          <div>
+                            <div className="font-semibold text-gray-800">
+                              {review.reviewerName}
+                              {isUserReview && <span className="ml-2 text-xs text-blue-600">(You)</span>}
+                            </div>
+                            {renderStars(review.rating)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(review.createdAt).toLocaleDateString()}
+                          </div>
                         </div>
-                      )}
+                        <p className="text-gray-700 mb-2">{review.comment}</p>
+                        {review.images && review.images.length > 0 && (
+                          <div className="grid grid-cols-3 gap-2 mt-2">
+                            {review.images.map((img, idx) => (
+                              <img
+                                key={idx}
+                                src={img}
+                                alt="Review"
+                                className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80"
+                                onClick={() => window.open(img, '_blank')}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 

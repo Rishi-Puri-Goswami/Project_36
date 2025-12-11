@@ -515,7 +515,9 @@ export const getBusinessById = async (req, res) => {
   try {
     const { businessId } = req.params;
 
-    const business = await Business.findById(businessId).populate('owner', 'fullName phone email');
+    const business = await Business.findById(businessId)
+      .populate('owner', 'fullName phone email')
+      .populate('reviews.reviewer', '_id fullName profilePicture');
 
     if (!business) {
       return res.status(404).json({ message: "Business not found", status: 404 });
@@ -1038,10 +1040,13 @@ export const addReview = async (req, res) => {
 
     await business.save();
 
+    // Get the saved review with _id
+    const savedReview = business.reviews[business.reviews.length - 1];
+
     return res.status(201).json({
       message: "Review added successfully",
       status: 201,
-      review: newReview,
+      review: savedReview.toObject(),
       averageRating: business.averageRating,
       totalReviews: business.totalReviews
     });
@@ -1087,7 +1092,7 @@ export const updateReview = async (req, res) => {
     return res.status(200).json({
       message: "Review updated successfully",
       status: 200,
-      review,
+      review: review.toObject(),
       averageRating: business.averageRating
     });
 
@@ -1154,7 +1159,7 @@ export const getBusinessReviews = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const business = await Business.findById(businessId)
-      .populate('reviews.reviewer', 'fullName profilePicture');
+      .populate('reviews.reviewer', '_id fullName profilePicture');
 
     if (!business) {
       return res.status(404).json({ message: "Business not found", status: 404 });

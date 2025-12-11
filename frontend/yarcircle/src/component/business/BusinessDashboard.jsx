@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Filter, Star, MapPin, SlidersHorizontal, X } from 'lucide-react';
 import { isBusinessAuthenticated, getBusinessToken, clearBusinessToken } from '../../utils/businessAuth';
 import { API_URL } from '../../config/api';
+import LoginPromptModal from '../common/LoginPromptModal';
 
 const BusinessDashboard = () => {
   const navigate = useNavigate();
@@ -12,6 +13,8 @@ const BusinessDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     businessType: '',
@@ -35,13 +38,18 @@ const BusinessDashboard = () => {
   });
 
   useEffect(() => {
-    if (!isBusinessAuthenticated()) {
-      navigate('/business/login');
-      return;
-    }
-    fetchProfile();
+    // Check authentication status
+    const authenticated = isBusinessAuthenticated();
+    setIsAuthenticated(authenticated);
+    
+    // Always fetch filter options and businesses for everyone
     fetchFilterOptions();
     fetchAllBusinesses();
+    
+    // Only fetch profile if authenticated
+    if (authenticated) {
+      fetchProfile();
+    }
   }, [navigate]);
 
   useEffect(() => {
@@ -196,83 +204,109 @@ const BusinessDashboard = () => {
               </div>
             </div>
 
-            {/* Profile Menu */}
+            {/* Profile Menu or Login/Register Buttons */}
             <div className="relative">
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
-                  {user?.profilePicture ? (
-                    <img src={user.profilePicture} alt={user.fullName || 'Profile'} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-purple-600 flex items-center justify-center">
-                      <span className="text-white font-semibold text-sm">
-                        {user?.fullName?.charAt(0)?.toUpperCase() || 'B'}
-                      </span>
+              {isAuthenticated && user ? (
+                <>
+                  <button
+                    onClick={() => setShowMenu(!showMenu)}
+                    className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {user?.profilePicture ? (
+                        <img src={user.profilePicture} alt={user.fullName || 'Profile'} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-purple-600 flex items-center justify-center">
+                          <span className="text-white font-semibold text-sm">
+                            {user?.fullName?.charAt(0)?.toUpperCase() || 'B'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="hidden md:block font-medium text-gray-700">
+                      {user?.fullName?.split(' ')[0] || 'Account'}
+                    </span>
+                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showMenu && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 py-2 z-50">
+                      <div className="px-4 py-2 border-b">
+                        <p className="font-semibold text-gray-800">{user?.fullName}</p>
+                        <p className="text-sm text-gray-500">{user?.phone}</p>
+                      </div>
+                      
+                      <Link
+                        to="/business/profile"
+                        className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-gray-700"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        My Profile
+                      </Link>
+
+                      <Link
+                        to="/business/my-listings"
+                        className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-gray-700"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        My Businesses
+                      </Link>
+
+                      <Link
+                        to="/business/add"
+                        className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-purple-600 font-medium"
+                        onClick={() => setShowMenu(false)}
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        List Your Shop/Business
+                      </Link>
+
+                      <div className="border-t mt-2 pt-2">
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-red-600 w-full"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          </svg>
+                          Logout
+                        </button>
+                      </div>
                     </div>
                   )}
-                </div>
-                <span className="hidden md:block font-medium text-gray-700">
-                  {user?.fullName?.split(' ')[0] || 'Account'}
-                </span>
-                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {/* Dropdown Menu */}
-              {showMenu && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 py-2 z-50">
-                  <div className="px-4 py-2 border-b">
-                    <p className="font-semibold text-gray-800">{user?.fullName}</p>
-                    <p className="text-sm text-gray-500">{user?.phone}</p>
-                  </div>
-                  
-                  <Link
-                    to="/business/profile"
-                    className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-gray-700"
-                    onClick={() => setShowMenu(false)}
+                </>
+              ) : (
+                /* Guest user - show login/register buttons */
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => navigate('/business/login')}
+                    className="px-4 py-2 text-purple-600 font-semibold hover:bg-purple-50 rounded-lg transition-colors flex items-center gap-2"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                     </svg>
-                    My Profile
-                  </Link>
-
-                  <Link
-                    to="/business/my-listings"
-                    className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-gray-700"
-                    onClick={() => setShowMenu(false)}
+                    <span className="hidden sm:inline">Login</span>
+                  </button>
+                  <button
+                    onClick={() => navigate('/business/register')}
+                    className="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                     </svg>
-                    My Businesses
-                  </Link>
-
-                  <Link
-                    to="/business/add"
-                    className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-purple-600 font-medium"
-                    onClick={() => setShowMenu(false)}
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    List Your Shop/Business
-                  </Link>
-
-                  <div className="border-t mt-2 pt-2">
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-red-600 w-full"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
-                      Logout
-                    </button>
-                  </div>
+                    <span className="hidden sm:inline">Register</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -453,6 +487,39 @@ const BusinessDashboard = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Guest Banner */}
+        {!isAuthenticated && (
+          <div className="mb-6 bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-600">
+            <div className="flex items-start gap-4">
+              <div className="bg-purple-100 p-3 rounded-lg">
+                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-800 mb-1">Browsing as Guest</h3>
+                <p className="text-gray-600 text-sm mb-3">
+                  You can browse all businesses, but you'll need to login to list your own business or leave reviews.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => navigate('/business/login')}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors text-sm"
+                  >
+                    Login Now
+                  </button>
+                  <button
+                    onClick={() => navigate('/business/register')}
+                    className="px-4 py-2 border-2 border-purple-600 text-purple-600 rounded-lg font-semibold hover:bg-purple-50 transition-colors text-sm"
+                  >
+                    Create Account
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Quick Action */}
         <div className="rounded-xl p-6 mb-8 text-white" style={{ backgroundColor: '#9333ea' }}>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -460,15 +527,27 @@ const BusinessDashboard = () => {
               <h2 className="text-2xl font-bold">List Your Business Today!</h2>
               <p className="text-gray-100 mt-1">Reach thousands of potential customers in your area</p>
             </div>
-            <Link
-              to="/business/add"
-              className="bg-white text-[#9333ea] px-6 py-3 rounded-lg font-semibold hover:opacity-95 transition-colors inline-flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Your Business
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                to="/business/add"
+                className="bg-white text-[#9333ea] px-6 py-3 rounded-lg font-semibold hover:opacity-95 transition-colors inline-flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Your Business
+              </Link>
+            ) : (
+              <button
+                onClick={() => setShowLoginPrompt(true)}
+                className="bg-white text-[#9333ea] px-6 py-3 rounded-lg font-semibold hover:opacity-95 transition-colors inline-flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Your Business
+              </button>
+            )}
           </div>
         </div>
 
@@ -598,6 +677,13 @@ const BusinessDashboard = () => {
           </>
         )}
       </div>
+      
+      {/* Login Prompt Modal */}
+      <LoginPromptModal 
+        isOpen={showLoginPrompt}
+        onClose={() => setShowLoginPrompt(false)}
+        userType="business"
+      />
     </div>
   );
 };
